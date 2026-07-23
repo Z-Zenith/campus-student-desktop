@@ -1,0 +1,6 @@
+[submodule "external/shared-editor-kit"]
+	path = external/shared-editor-kit
+	url = https://github.com/Z-Zenith/campus-shared-editor-kit.git
+[submodule "external/direct-messaging"]
+	path = external/direct-messaging
+	url = https://github.com/Z-Zenith/campus-direct-messaging.git

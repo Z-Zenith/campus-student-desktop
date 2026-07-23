@@ -27,22 +27,28 @@ dotnet test   # StudentDesktop.Tests
 ## Cross-repo NativeWebView integrations (SDA-19, SDA-24)
 
 Two features embed a React/TypeScript component from a sibling repo as a WebView-hosted
-bundle, not a .NET assembly:
+bundle, not a .NET assembly. Each sibling is a **git submodule** under `external/`, pinned to
+that repo's `host-0.1.0` tag:
 
-- **SDA-19** (`SekHost/`): `campus-shared-editor-kit`'s `NotesEditor`, built via
-  `npm run build:host` in that repo, tagged `host-0.1.0`.
-- **SDA-24** (`DmsHost/`): `campus-direct-messaging`'s `MessageInbox`/`MessageThreadView`,
-  same build, tagged `host-0.1.0`.
+- **SDA-19** (`SekHost/`): `external/shared-editor-kit` → `campus-shared-editor-kit`'s
+  `NotesEditor`.
+- **SDA-24** (`DmsHost/`): `external/direct-messaging` → `campus-direct-messaging`'s
+  `MessageInbox`/`MessageThreadView`.
 
-**Known gap carried over from the split:** `StudentDesktop.csproj`'s `<Content Include>` globs
-for `dist/host/**` currently expect that output to exist at
-`../../packages/{shared-editor-kit,direct-messaging}/dist/host/**` — a monorepo-relative path
-that no longer resolves now that those packages are separate repos. Missing `dist/host` yields
-zero copied files, not a build error (Content globs don't fail on no matches), so `dotnet build`
-still succeeds, but `SekHost`/`DmsHost` will be empty until this is fixed. Fixing it requires
-deciding a cross-repo distribution mechanism for .NET (git submodule pinned to the `host-0.1.0`
-tag, a downloaded release asset, or similar) — this was a real open question at split time, not
-yet resolved. Whoever picks this up should update `StudentDesktop.csproj` and this section.
+Before `dotnet build`:
+
+```bash
+git submodule update --init
+(cd external/shared-editor-kit && npm install && npm run build:host)
+(cd external/direct-messaging && npm install && npm run build:host)
+```
+
+This is a manual dev prerequisite, same as pre-split — not yet wired into a cross-toolchain CI
+step (tracked as a follow-up). Missing `dist/host` yields zero copied files, not a build error
+(Content globs don't fail on no matches), so `dotnet build` still succeeds without it, but
+`SekHost`/`DmsHost` will be empty. To bump either submodule to a newer `host-<version>` tag:
+`cd external/<name> && git fetch --tags && git checkout host-<version>`, then commit the
+updated submodule pointer in this repo.
 
 ## Code conventions
 

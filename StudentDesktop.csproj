@@ -40,23 +40,26 @@
   </ItemGroup>
 
   <!-- SDA-19: SEK-03's NotesEditor is React/TypeScript; embedding it means loading a
-       standalone bundle in a NativeWebView, not referencing a .NET assembly. Requires
-       `npm run build:host` in packages/shared-editor-kit to have run first — not yet
-       wired into a cross-toolchain CI/build step (tracked as a follow-up), so this is a
-       manual dev prerequisite for now. Missing dist/host just yields zero copied files,
-       not a build error, since Content globs don't fail on no matches. -->
+       standalone bundle in a NativeWebView, not referencing a .NET assembly. Since the
+       repo split, campus-shared-editor-kit is a git submodule (external/shared-editor-kit)
+       pinned to the host-0.1.0 tag. Initialize the submodule, then run
+       `npm run build:host` inside it before dotnet build. Not yet wired into a
+       cross-toolchain CI/build step (tracked as a follow-up, same as pre-split), so this
+       is a manual dev prerequisite for now. Missing dist/host just yields zero copied
+       files, not a build error, since Content globs don't fail on no matches. -->
   <ItemGroup>
-    <Content Include="..\..\packages\shared-editor-kit\dist\host\**">
+    <Content Include="external\shared-editor-kit\dist\host\**">
       <Link>SekHost\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
   </ItemGroup>
 
   <!-- SDA-24: DMS-01's MessageInbox/MessageThreadView are React/TypeScript, same
-       embedding approach as SDA-19's SEK integration above. Requires
-       `npm run build:host` in packages/direct-messaging to have run first. -->
+       embedding approach as SDA-19's SEK integration above. campus-direct-messaging is a
+       git submodule (external/direct-messaging) pinned to the host-0.1.0 tag. Initialize
+       the submodule, then run `npm run build:host` inside it before dotnet build. -->
   <ItemGroup>
-    <Content Include="..\..\packages\direct-messaging\dist\host\**">
+    <Content Include="external\direct-messaging\dist\host\**">
       <Link>DmsHost\%(RecursiveDir)%(Filename)%(Extension)</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
