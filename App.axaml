@@ -8,8 +8,27 @@
     <Application.DataTemplates>
         <local:ViewLocator/>
     </Application.DataTemplates>
-  
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="avares://StudentDesktop/Styles/ThemeResources.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
     <Application.Styles>
-        <FluentTheme />
+        <!-- SDA UI polish: sleek/futuristic accent to match the sibling web apps'
+             indigo/violet + cyan palette. FluentTheme.Palettes sets the accent color
+             family (SystemAccentColor and its light/dark variants) plus RegionColor
+             (the base app-background color) for each theme variant; no control
+             templates are overridden here, so interactive behavior is unchanged. -->
+        <FluentTheme>
+            <FluentTheme.Palettes>
+                <ColorPaletteResources x:Key="Light" Accent="#6A3DE8" RegionColor="#FCFCFE" />
+                <ColorPaletteResources x:Key="Dark" Accent="#7C5CFC" RegionColor="#15141C" />
+            </FluentTheme.Palettes>
+        </FluentTheme>
+        <StyleInclude Source="avares://StudentDesktop/Styles/ButtonAccent.axaml" />
     </Application.Styles>
 </Application>

@@ -1,0 +1,10 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- SDA UI polish: softer, more modern corner radii to match the sibling web apps'
+       new visual identity. Merged into Application.Resources (not Application.Styles)
+       so the override is resolved ahead of FluentTheme's own defaults regardless of
+       style-list ordering. Additive resource values only, no control templates are
+       replaced, so interactive behavior is untouched. -->
+  <CornerRadius x:Key="ControlCornerRadius">10</CornerRadius>
+  <CornerRadius x:Key="OverlayCornerRadius">12</CornerRadius>
+</ResourceDictionary>
