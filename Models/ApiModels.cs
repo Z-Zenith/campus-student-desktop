@@ -27,6 +27,11 @@ public record WhitelistSiteDto(Guid Id, string Url, DateTime ApprovedAt);
 
 public record WhitelistResponse(List<WhitelistSiteDto> Sites);
 
+// SDA-04
+public record CreateWhitelistRequestRequest(string Url);
+
+public record WhitelistRequestDto(Guid Id, string Url, Guid RequestedBy, string Status, Guid? ReviewedBy);
+
 // SDA-08, SEK-03
 // SDA-19: outgoing links as parsed by SEK's own extractOutgoingLinks, forwarded as-is.
 public record NoteLinkInput(Guid ToNoteId, string Anchor);
@@ -78,6 +83,17 @@ public record SendMessageRequest(string Content);
 public record DmsMessageDto(Guid Id, Guid ThreadId, Guid SenderId, string Content, DateTime SentAt, DateTime? ReadAt);
 
 public record DmsThreadSummaryDto(Guid Id, Guid StudentId, Guid TeacherId, DateTime CreatedAt, DmsMessageDto? LastMessage);
+
+// SEK-04
+public record ImageSearchRequestBody(string Query);
+
+public record ImageSearchResultDto(string Id, string Title, string SourceUrl, string ThumbnailUrl, int Width, int Height, string Attribution);
+
+public record ImageSearchResponseDto(string Query, List<ImageSearchResultDto> Results, bool Degraded);
+
+public record SaveImageRequestBody(string SourceUrl);
+
+public record SaveImageResponseDto(string Url);
 
 // SDA-25: no ClassSessionId here — the client only ever claims an AssignmentId it
 // already knows (from having opened that assignment); the backend resolves the active

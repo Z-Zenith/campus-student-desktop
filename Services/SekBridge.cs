@@ -68,6 +68,8 @@ public sealed class SekBridge(ApiClient apiClient)
                 "delete" => await DeleteAsync(request.RequestId, request.Payload),
                 "resolveLink" => await ResolveLinkAsync(request.RequestId, request.Payload),
                 "listBacklinks" => await ListBacklinksAsync(request.RequestId, request.Payload),
+                "searchImages" => await SearchImagesAsync(request.RequestId, request.Payload),
+                "uploadImage" => await UploadImageAsync(request.RequestId, request.Payload),
                 _ => new BridgeResponse(request.RequestId, false, null,
                     new SekErrorDto("validation_error", $"Unknown SEK bridge method '{request.Method}'.")),
             };
@@ -130,6 +132,27 @@ public sealed class SekBridge(ApiClient apiClient)
         return new BridgeResponse(requestId, true, backlinks.Select(ToSekNote).ToList(), null);
     }
 
+    private async Task<BridgeResponse> SearchImagesAsync(string requestId, JsonElement payload)
+    {
+        var search = payload.Deserialize<SearchImagesPayload>(JsonOptions)
+            ?? throw new InvalidOperationException("Malformed 'searchImages' payload.");
+        var result = await apiClient.SearchImagesAsync(search.Query);
+        return new BridgeResponse(requestId, true, result, null);
+    }
+
+    // SEK-04: mirrors campus-teacher-web's uploadImage adapter — the backend's
+    // /image-search/save only fetches+stores bytes, this builds the ImageInsert
+    // client-side from the search result's own title/width/height/attribution plus the
+    // freshly re-hosted embeddedUrl.
+    private async Task<BridgeResponse> UploadImageAsync(string requestId, JsonElement payload)
+    {
+        var upload = payload.Deserialize<UploadImagePayload>(JsonOptions)
+            ?? throw new InvalidOperationException("Malformed 'uploadImage' payload.");
+        var embeddedUrl = await apiClient.SaveImageAsync(upload.Result.SourceUrl);
+        var insert = new SekImageInsertDto(embeddedUrl, upload.Result.Title, upload.Result.Width, upload.Result.Height, upload.Result.Attribution);
+        return new BridgeResponse(requestId, true, insert, null);
+    }
+
     // All notes flowing through this bridge belong to the signed-in student (the backend
     // enforces that), so the SEK Note.ownerId field can be synthesized from the session
     // rather than requiring NoteDto to carry it.
@@ -153,4 +176,7 @@ public sealed class SekBridge(ApiClient apiClient)
     private sealed record SavePayload(SekNoteDto Note, IReadOnlyList<NoteLinkInput>? Links);
     private sealed record NoteIdPayload(Guid NoteId);
     private sealed record ToNoteIdPayload(Guid ToNoteId);
+    private sealed record SearchImagesPayload(string Query);
+    private sealed record UploadImagePayload(ImageSearchResultDto Result);
+    private sealed record SekImageInsertDto(string EmbeddedUrl, string AltText, int Width, int Height, string Attribution);
 }

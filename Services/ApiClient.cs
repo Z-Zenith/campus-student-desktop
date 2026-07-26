@@ -148,6 +148,30 @@ public class ApiClient
             ?? new WhitelistResponse([]);
     }
 
+    // SDA-04: asks a teacher/admin to approve a site not yet on the whitelist.
+    public async Task<WhitelistRequestDto> RequestWhitelistAsync(string url)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/whitelist/requests", new CreateWhitelistRequestRequest(url));
+        return await response.Content.ReadFromJsonAsync<WhitelistRequestDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty whitelist request response");
+    }
+
+    // SEK-04
+    public async Task<ImageSearchResponseDto> SearchImagesAsync(string query)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/image-search", new ImageSearchRequestBody(query));
+        return await response.Content.ReadFromJsonAsync<ImageSearchResponseDto>(JsonOptions)
+            ?? new ImageSearchResponseDto(query, [], true);
+    }
+
+    public async Task<string> SaveImageAsync(string sourceUrl)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/image-search/save", new SaveImageRequestBody(sourceUrl));
+        var dto = await response.Content.ReadFromJsonAsync<SaveImageResponseDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty save-image response");
+        return dto.Url;
+    }
+
     // SDA-08
     public async Task<List<NoteSummaryDto>> GetMyNotesAsync()
     {
