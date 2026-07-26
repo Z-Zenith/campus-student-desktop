@@ -1,0 +1,122 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Shared design system: semantic color brushes (light/dark), a spacing scale, and a
+       small set of reusable style classes (card / status banners / empty-state / busy
+       spinner) so views stop hardcoding their own ad hoc hex colors and copy-pasted
+       "card" borders. Apply these via Classes="card" / Classes="banner-error" etc.
+       instead of inline Background/BorderBrush/Padding. -->
+  <Styles.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <Color x:Key="SystemCardColor">#F7F7F7</Color>
+          <Color x:Key="SystemBorderColor">#DDDDDD</Color>
+          <Color x:Key="SystemErrorColor">#C0392B</Color>
+          <Color x:Key="SystemErrorBgColor">#FDEDEC</Color>
+          <Color x:Key="SystemSuccessColor">#1E8449</Color>
+          <Color x:Key="SystemSuccessBgColor">#EAFAF1</Color>
+          <Color x:Key="SystemWarningColor">#B9770E</Color>
+          <Color x:Key="SystemWarningBgColor">#FEF5E7</Color>
+          <Color x:Key="SystemMutedTextColor">#666666</Color>
+          <Color x:Key="SystemRailColor">#F2F2F5</Color>
+          <Color x:Key="SystemAccentSoftColor">#E8ECFB</Color>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <Color x:Key="SystemCardColor">#2A2A2E</Color>
+          <Color x:Key="SystemBorderColor">#3F3F46</Color>
+          <Color x:Key="SystemErrorColor">#FF6B6B</Color>
+          <Color x:Key="SystemErrorBgColor">#3A2323</Color>
+          <Color x:Key="SystemSuccessColor">#5FD787</Color>
+          <Color x:Key="SystemSuccessBgColor">#1F3A2A</Color>
+          <Color x:Key="SystemWarningColor">#F5B041</Color>
+          <Color x:Key="SystemWarningBgColor">#3A2E17</Color>
+          <Color x:Key="SystemMutedTextColor">#AAAAAA</Color>
+          <Color x:Key="SystemRailColor">#202023</Color>
+          <Color x:Key="SystemAccentSoftColor">#2B2F45</Color>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+
+      <SolidColorBrush x:Key="SystemCardBrush" Color="{DynamicResource SystemCardColor}"/>
+      <SolidColorBrush x:Key="SystemBorderBrush" Color="{DynamicResource SystemBorderColor}"/>
+      <SolidColorBrush x:Key="SystemErrorBrush" Color="{DynamicResource SystemErrorColor}"/>
+      <SolidColorBrush x:Key="SystemErrorBgBrush" Color="{DynamicResource SystemErrorBgColor}"/>
+      <SolidColorBrush x:Key="SystemSuccessBrush" Color="{DynamicResource SystemSuccessColor}"/>
+      <SolidColorBrush x:Key="SystemSuccessBgBrush" Color="{DynamicResource SystemSuccessBgColor}"/>
+      <SolidColorBrush x:Key="SystemWarningBrush" Color="{DynamicResource SystemWarningColor}"/>
+      <SolidColorBrush x:Key="SystemWarningBgBrush" Color="{DynamicResource SystemWarningBgColor}"/>
+      <SolidColorBrush x:Key="SystemMutedTextBrush" Color="{DynamicResource SystemMutedTextColor}"/>
+      <SolidColorBrush x:Key="SystemRailBrush" Color="{DynamicResource SystemRailColor}"/>
+      <SolidColorBrush x:Key="SystemAccentSoftBrush" Color="{DynamicResource SystemAccentSoftColor}"/>
+
+      <!-- Spacing scale -->
+      <x:Double x:Key="Spacing.XS">4</x:Double>
+      <x:Double x:Key="Spacing.S">8</x:Double>
+      <x:Double x:Key="Spacing.M">12</x:Double>
+      <x:Double x:Key="Spacing.L">16</x:Double>
+      <x:Double x:Key="Spacing.XL">24</x:Double>
+    </ResourceDictionary>
+  </Styles.Resources>
+
+  <!-- Card: replaces the copy-pasted Background="#F7F7F7" CornerRadius="6" Padding="12" -->
+  <Style Selector="Border.card">
+    <Setter Property="Background" Value="{DynamicResource SystemCardBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemBorderBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="6"/>
+    <Setter Property="Padding" Value="12"/>
+  </Style>
+
+  <!-- Status banners: tinted background + icon-ready left padding, not bare colored text -->
+  <Style Selector="Border.banner-error">
+    <Setter Property="Background" Value="{DynamicResource SystemErrorBgBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemErrorBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="Padding" Value="10,8"/>
+  </Style>
+  <Style Selector="Border.banner-error TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource SystemErrorBrush}"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+  </Style>
+
+  <Style Selector="Border.banner-success">
+    <Setter Property="Background" Value="{DynamicResource SystemSuccessBgBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemSuccessBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="Padding" Value="10,8"/>
+  </Style>
+  <Style Selector="Border.banner-success TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource SystemSuccessBrush}"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+  </Style>
+
+  <Style Selector="Border.banner-warning">
+    <Setter Property="Background" Value="{DynamicResource SystemWarningBgBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemWarningBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="4"/>
+    <Setter Property="Padding" Value="10,8"/>
+  </Style>
+  <Style Selector="Border.banner-warning TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource SystemWarningBrush}"/>
+    <Setter Property="TextWrapping" Value="Wrap"/>
+  </Style>
+
+  <!-- Empty-state placeholder text, used where a list/collection has nothing yet -->
+  <Style Selector="TextBlock.empty-state">
+    <Setter Property="Foreground" Value="{DynamicResource SystemMutedTextBrush}"/>
+    <Setter Property="FontStyle" Value="Italic"/>
+    <Setter Property="Margin" Value="0,8"/>
+  </Style>
+
+  <!-- Busy/loading spinner (indeterminate ProgressBar doubling as a simple spinner) -->
+  <Style Selector="ProgressBar.busy-spinner">
+    <Setter Property="IsIndeterminate" Value="True"/>
+    <Setter Property="Width" Value="120"/>
+    <Setter Property="Height" Value="4"/>
+    <Setter Property="Margin" Value="0,8"/>
+  </Style>
+
+</Styles>

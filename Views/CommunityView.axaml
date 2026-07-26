@@ -3,6 +3,7 @@
              xmlns:vm="using:StudentDesktop.ViewModels"
              xmlns:models="using:StudentDesktop.Models"
              xmlns:avconv="using:Avalonia.Data.Converters"
+             xmlns:conv="using:StudentDesktop.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="650"
@@ -12,11 +13,12 @@
     <DockPanel>
         <StackPanel DockPanel.Dock="Top" Margin="16,12" Spacing="8">
             <TextBlock Text="Community" FontSize="20" FontWeight="Bold"/>
-            <TextBlock Text="{Binding ErrorMessage}" Foreground="IndianRed" TextWrapping="Wrap"
-                       IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
+            <Border Classes="banner-error" IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding ErrorMessage}"/>
+            </Border>
         </StackPanel>
 
-        <Border DockPanel.Dock="Left" Width="240" BorderBrush="#DDDDDD" BorderThickness="0,0,1,0">
+        <Border DockPanel.Dock="Left" Width="240" BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,0,1,0">
             <ListBox ItemsSource="{Binding Groups}" SelectedItem="{Binding SelectedGroup}">
                 <ListBox.ItemTemplate>
                     <DataTemplate DataType="models:GroupDto">
@@ -29,40 +31,53 @@
             </ListBox>
         </Border>
 
-        <ScrollViewer>
-            <StackPanel Margin="16" Spacing="16" IsVisible="{Binding SelectedGroup, Converter={x:Static avconv:ObjectConverters.IsNotNull}}">
-                <StackPanel Spacing="6">
-                    <TextBlock Text="Materials" FontWeight="Bold"/>
-                    <ItemsControl ItemsSource="{Binding Materials}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="models:MaterialDto">
-                                <TextBlock Text="{Binding Title}" Margin="0,2"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
+        <Grid>
+            <TextBlock Text="Select a group to see its posts and materials." Classes="empty-state"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       IsVisible="{Binding SelectedGroup, Converter={x:Static avconv:ObjectConverters.IsNull}}"/>
 
-                <StackPanel Spacing="6">
-                    <TextBlock Text="Posts" FontWeight="Bold"/>
-                    <Grid ColumnDefinitions="*,Auto">
-                        <TextBox Grid.Column="0" Text="{Binding NewPostContent}" PlaceholderText="Post something…" AcceptsReturn="True"/>
-                        <Button Grid.Column="1" Content="Post" Command="{Binding PostCommand}" Margin="8,0,0,0"/>
-                    </Grid>
-                    <ItemsControl ItemsSource="{Binding Posts}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate DataType="models:GroupPostDto">
-                                <Border BorderBrush="#EEEEEE" BorderThickness="0,0,0,1" Padding="0,8">
-                                    <StackPanel>
-                                        <TextBlock Text="{Binding Content}" TextWrapping="Wrap"/>
-                                        <TextBlock Text="{Binding CreatedAt}" FontSize="11" Foreground="Gray"/>
+            <ScrollViewer IsVisible="{Binding SelectedGroup, Converter={x:Static avconv:ObjectConverters.IsNotNull}}">
+                <StackPanel Margin="16" Spacing="16">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Materials" FontWeight="Bold"/>
+                        <TextBlock Text="No materials yet." Classes="empty-state"
+                                   IsVisible="{Binding Materials.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
+                        <ItemsControl ItemsSource="{Binding Materials}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="models:MaterialDto">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,2" ToolTip.Tip="{Binding FileUrl}">
+                                        <TextBlock Text="📎"/>
+                                        <TextBlock Text="{Binding Title}"/>
                                     </StackPanel>
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Posts" FontWeight="Bold"/>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBox Grid.Column="0" Text="{Binding NewPostContent}" PlaceholderText="Post something…" AcceptsReturn="True"/>
+                            <Button Grid.Column="1" Content="Post" Command="{Binding PostCommand}" Margin="8,0,0,0"/>
+                        </Grid>
+                        <TextBlock Text="No posts yet — be the first." Classes="empty-state"
+                                   IsVisible="{Binding Posts.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
+                        <ItemsControl ItemsSource="{Binding Posts}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="models:GroupPostDto">
+                                    <Border BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,0,0,1" Padding="0,8">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Content}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding CreatedAt, StringFormat='{}{0:MMM d, h:mm tt}'}" FontSize="11" Foreground="Gray"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
-        </ScrollViewer>
+            </ScrollViewer>
+        </Grid>
     </DockPanel>
 
 </UserControl>

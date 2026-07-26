@@ -27,11 +27,25 @@ public partial class BrowserViewModel : ViewModelBase
     public Func<Task<string?>>? GetPageTitleAsync { get; set; }
     public Func<Task<string?>>? GetSelectedTextAsync { get; set; }
 
+    // Toolbar actions — same delegate-injection pattern as the two above, so this VM
+    // never needs a direct reference to the WebView control.
+    public Action? GoBackRequested { get; set; }
+    public Action? GoForwardRequested { get; set; }
+    public Action? ReloadRequested { get; set; }
+    public Func<bool>? CanGoBack { get; set; }
+    public Func<bool>? CanGoForward { get; set; }
+
     [ObservableProperty]
     private string _urlInput = "";
 
     [ObservableProperty]
     private Uri? _currentSource;
+
+    [ObservableProperty]
+    private bool _isLoading;
+
+    [ObservableProperty]
+    private string? _pageTitle;
 
     [ObservableProperty]
     private string? _errorMessage;
@@ -124,6 +138,27 @@ public partial class BrowserViewModel : ViewModelBase
             return;
         }
         CurrentSource = uri;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanGoBackNow))]
+    private void GoBack() => GoBackRequested?.Invoke();
+
+    private bool CanGoBackNow() => CanGoBack?.Invoke() ?? false;
+
+    [RelayCommand(CanExecute = nameof(CanGoForwardNow))]
+    private void GoForward() => GoForwardRequested?.Invoke();
+
+    private bool CanGoForwardNow() => CanGoForward?.Invoke() ?? false;
+
+    [RelayCommand]
+    private void Reload() => ReloadRequested?.Invoke();
+
+    // Called by BrowserView's code-behind after every navigation completes, since
+    // CanGoBack/CanGoForward availability only changes at that point.
+    public void RefreshNavigationState()
+    {
+        GoBackCommand.NotifyCanExecuteChanged();
+        GoForwardCommand.NotifyCanExecuteChanged();
     }
 
     private bool CanRequestWhitelist() => BlockedUri is not null && !IsWhitelistRequestBusy;

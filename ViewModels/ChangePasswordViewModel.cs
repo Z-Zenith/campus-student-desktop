@@ -22,6 +22,9 @@ public partial class ChangePasswordViewModel(ApiClient apiClient) : ViewModelBas
     private string _confirmPassword = string.Empty;
 
     [ObservableProperty]
+    private bool _isPasswordVisible;
+
+    [ObservableProperty]
     private string _totpCode = string.Empty;
 
     [ObservableProperty]

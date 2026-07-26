@@ -5,18 +5,18 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="650"
-             x:Class="StudentDesktop.Views.MessagesView"
-             x:DataType="vm:MessagesViewModel">
+             x:Class="StudentDesktop.Views.CodeEditorView"
+             x:DataType="vm:CodeEditorViewModel">
 
     <DockPanel>
         <StackPanel DockPanel.Dock="Top" Margin="16,12" Spacing="8">
-            <TextBlock Text="Messages" FontSize="20" FontWeight="Bold"/>
-            <TextBlock Text="SDA-24: powered by the Direct Messaging component (DMS-01)."
+            <TextBlock Text="Coding" FontSize="20" FontWeight="Bold"/>
+            <TextBlock Text="Powered by the Shared Editor Kit's code editor (SEK-01). Write code, then Run it — output and errors appear in the editor pane."
                        TextWrapping="Wrap" Foreground="Gray"/>
         </StackPanel>
 
         <Grid>
-            <webview:NativeWebView x:Name="MessagesWebView"/>
+            <webview:NativeWebView x:Name="EditorWebView"/>
             <TextBlock Text="Loading…" IsVisible="{Binding !IsLoaded}"
                        HorizontalAlignment="Center" VerticalAlignment="Center"
                        FontSize="16" Foreground="Gray"/>

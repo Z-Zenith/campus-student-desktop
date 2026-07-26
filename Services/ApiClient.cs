@@ -45,6 +45,40 @@ public class ApiClient
             ?? new MyCalendarResponse([]);
     }
 
+    // SDA-14: personal to-do / custom-entry CRUD backing Calendar's interactive lists.
+    public async Task<TodoDto> CreateTodoAsync(string title, DateTime? dueDate)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/todos", new CreateTodoRequest(title, dueDate));
+        return await response.Content.ReadFromJsonAsync<TodoDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty to-do response");
+    }
+
+    public async Task<TodoDto> SetTodoCompleteAsync(Guid todoId, bool completed)
+    {
+        var response = await SendAsync(HttpMethod.Patch, $"/api/v1/todos/{todoId}/complete", new SetTodoCompleteRequest(completed));
+        return await response.Content.ReadFromJsonAsync<TodoDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty to-do response");
+    }
+
+    public Task DeleteTodoAsync(Guid todoId) => SendAsync(HttpMethod.Delete, $"/api/v1/todos/{todoId}");
+
+    public async Task<CustomCalendarEntryDto> CreateCustomCalendarEntryAsync(string title, DateOnly entryDate)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/calendar/custom-entries", new CreateCustomCalendarEntryRequest(title, entryDate));
+        return await response.Content.ReadFromJsonAsync<CustomCalendarEntryDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty custom entry response");
+    }
+
+    public Task DeleteCustomCalendarEntryAsync(Guid entryId) => SendAsync(HttpMethod.Delete, $"/api/v1/calendar/custom-entries/{entryId}");
+
+    // SEK-01: the Coding app's "Run" action.
+    public async Task<CodeRunResultDto> RunCodeAsync(string language, string content, string? stdin)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/code/run", new RunCodeRequest(language, content, stdin, null));
+        return await response.Content.ReadFromJsonAsync<CodeRunResultDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty code-run response");
+    }
+
     public async Task<List<EventDto>> ListEventsAsync()
     {
         var response = await SendAsync(HttpMethod.Get, "/api/v1/events");
@@ -73,6 +107,13 @@ public class ApiClient
 
     // SDA-10: manual submission. The backend flags late submissions and rejects a
     // format mismatch (e.g. a quiz submitted as a file upload) — this just forwards.
+    // SDA-10: the Assignments tile grid's data source.
+    public async Task<List<AssignmentSummaryDto>> GetMyAssignmentsAsync()
+    {
+        var response = await SendAsync(HttpMethod.Get, "/api/v1/assignments/mine");
+        return await response.Content.ReadFromJsonAsync<List<AssignmentSummaryDto>>(JsonOptions) ?? [];
+    }
+
     public async Task<SubmissionDto> SubmitAssignmentAsync(Guid assignmentId, string contentUrl, string submissionFormat)
     {
         var response = await SendAsync(HttpMethod.Post, $"/api/v1/assignments/{assignmentId}/submissions",

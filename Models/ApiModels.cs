@@ -11,6 +11,22 @@ public record CalendarItemDto(string Kind, Guid Id, string Title, DateTime Start
 
 public record MyCalendarResponse(List<CalendarItemDto> Items);
 
+// SDA-14: personal to-do / custom-entry write operations.
+public record CreateTodoRequest(string Title, DateTime? DueDate);
+
+public record TodoDto(Guid Id, string Title, DateTime? DueDate, bool Completed);
+
+public record SetTodoCompleteRequest(bool Completed);
+
+public record CreateCustomCalendarEntryRequest(string Title, DateOnly EntryDate);
+
+public record CustomCalendarEntryDto(Guid Id, string Title, DateOnly EntryDate);
+
+// SEK-01: the Coding app's run request/result — CodeBridge forwards SEK's CodeSource here.
+public record RunCodeRequest(string Language, string Content, string? Stdin, string? Filename);
+
+public record CodeRunResultDto(string Stdout, string Stderr, int ExitCode, long DurationMs, bool TimedOut);
+
 public record EventDto(Guid Id, string Title, DateTime StartTime, DateTime EndTime, bool IsRegistered);
 
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword, string TotpCode);
@@ -63,6 +79,9 @@ public record MySubjectDto(Guid SubjectId, string SubjectCode, string SubjectNam
 public record SubmitAssignmentRequest(string ContentUrl, string SubmissionFormat);
 
 public record SubmissionDto(Guid Id, Guid AssignmentId, Guid StudentId, string ContentUrl, DateTime SubmittedAt, bool IsLate, bool IsAutosubmitted);
+
+// SDA-10: one row per assignment for the Assignments tile grid — GET /api/v1/assignments/mine.
+public record AssignmentSummaryDto(Guid Id, string Title, string SubjectName, string Type, DateTime DueDate, DateTime? SubmittedAt, bool? IsLate);
 
 // SDA-16
 public record GroupDto(Guid Id, string Name, string Type, Guid? SectionId);
