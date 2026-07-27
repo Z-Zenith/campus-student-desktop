@@ -8,16 +8,27 @@
              x:Class="StudentDesktop.Views.LoginView"
              x:DataType="vm:LoginViewModel">
 
-    <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="320">
+    <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="340">
         <StackPanel Spacing="10">
             <TextBlock Text="Student Desktop — Sign in" FontSize="18" FontWeight="Bold" Margin="0,0,0,12"/>
-            <TextBox PlaceholderText="Roll number / username" Text="{Binding Identifier}"/>
-            <TextBox PlaceholderText="Password" PasswordChar="*" Text="{Binding Password}"/>
-            <TextBox PlaceholderText="TOTP code" Text="{Binding TotpCode}"/>
-            <TextBlock Text="{Binding ErrorMessage}" Foreground="IndianRed" TextWrapping="Wrap"
-                       IsVisible="{Binding ErrorMessage, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}"/>
-            <Button Content="Sign in" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                    Command="{Binding LoginCommand}" IsEnabled="{Binding !IsBusy}"/>
+
+            <TextBlock Text="Roll number / username"/>
+            <TextBox Text="{Binding Identifier}"/>
+
+            <TextBlock Text="Password"/>
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0" PasswordChar="*" RevealPassword="{Binding IsPasswordVisible}" Text="{Binding Password}"/>
+                <ToggleButton Grid.Column="1" Content="👁" Margin="6,0,0,0"
+                              IsChecked="{Binding IsPasswordVisible}"
+                              ToolTip.Tip="Show/hide password"/>
+            </Grid>
+
+            <Border Classes="banner-error" IsVisible="{Binding ErrorMessage, Converter={x:Static conv:StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding ErrorMessage}"/>
+            </Border>
+
+            <Button Content="Continue" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                    Command="{Binding ContinueCommand}"/>
         </StackPanel>
     </Grid>
 

@@ -9,6 +9,7 @@ public partial class BrowserView : UserControl
     {
         InitializeComponent();
         WebViewControl.NavigationStarted += OnNavigationStarted;
+        WebViewControl.NavigationCompleted += OnNavigationCompleted;
         DataContextChanged += (_, _) => WireViewModel();
     }
 
@@ -24,6 +25,11 @@ public partial class BrowserView : UserControl
         // holding a reference to an Avalonia control.
         vm.GetPageTitleAsync = () => WebViewControl.InvokeScript("document.title");
         vm.GetSelectedTextAsync = () => WebViewControl.InvokeScript("window.getSelection().toString()");
+        vm.GoBackRequested = () => WebViewControl.GoBack();
+        vm.GoForwardRequested = () => WebViewControl.GoForward();
+        vm.ReloadRequested = () => WebViewControl.Refresh();
+        vm.CanGoBack = () => WebViewControl.CanGoBack;
+        vm.CanGoForward = () => WebViewControl.CanGoForward;
     }
 
     // SDA-03/SDA-04: the whitelist check must gate every navigation the WebView itself
@@ -31,9 +37,25 @@ public partial class BrowserView : UserControl
     // Navigate command triggers.
     private void OnNavigationStarted(object? sender, WebViewNavigationStartingEventArgs e)
     {
-        if (DataContext is BrowserViewModel vm && (e.Request is null || !vm.IsWhitelisted(e.Request)))
+        if (DataContext is BrowserViewModel vm)
         {
-            e.Cancel = true;
+            if (e.Request is null || !vm.IsWhitelisted(e.Request))
+            {
+                e.Cancel = true;
+                return;
+            }
+            vm.IsLoading = true;
         }
+    }
+
+    private async void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
+    {
+        if (DataContext is not BrowserViewModel vm)
+        {
+            return;
+        }
+        vm.IsLoading = false;
+        vm.RefreshNavigationState();
+        vm.PageTitle = await WebViewControl.InvokeScript("document.title");
     }
 }

@@ -14,10 +14,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
 
       - uses: actions/setup-dotnet@v5
         with:
           dotnet-version: "10.0.x"
+
+      - name: Build SEK WebView host bundle
+        run: npm ci && npm run build:host
+        working-directory: external/shared-editor-kit
+
+      - name: Build DMS WebView host bundle
+        run: npm ci && npm run build:host
+        working-directory: external/direct-messaging
 
       - name: Restore
         run: dotnet restore

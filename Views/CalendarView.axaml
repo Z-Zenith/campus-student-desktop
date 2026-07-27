@@ -12,11 +12,15 @@
     <ScrollViewer>
         <StackPanel Margin="20" Spacing="16">
             <TextBlock Text="My Calendar" FontSize="20" FontWeight="Bold"/>
-            <TextBlock Text="College-wide events, registered events, to-dos, and custom entries in one view (SDA-14) — class schedule overlaid Google-Calendar-style."
+            <TextBlock Text="College-wide events, registered events, to-dos, and custom entries in one view — class schedule overlaid Google-Calendar-style."
                        TextWrapping="Wrap" Foreground="Gray"/>
-            <TextBlock Text="{Binding ErrorMessage}" Foreground="IndianRed" IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
 
-            <Border BorderBrush="#DDDDDD" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+            <ProgressBar Classes="busy-spinner" IsVisible="{Binding IsBusy}"/>
+            <Border Classes="banner-error" IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding ErrorMessage}"/>
+            </Border>
+
+            <Border BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
                 <ItemsControl ItemsSource="{Binding GridCells}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
@@ -45,39 +49,57 @@
             </Border>
 
             <TextBlock Text="To-dos" FontWeight="Bold" FontSize="14"/>
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0" Text="{Binding NewTodoTitle}" PlaceholderText="Add a to-do…"/>
+                <Button Grid.Column="1" Content="Add" Margin="8,0,0,0" Command="{Binding AddTodoCommand}"/>
+            </Grid>
+            <TextBlock Text="No to-dos yet." Classes="empty-state" IsVisible="{Binding Todos.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
             <ItemsControl ItemsSource="{Binding Todos}">
                 <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="vm:CalendarListItemViewModel">
-                        <Border Background="#F5F0FF" CornerRadius="4" Padding="8" Margin="0,0,0,4">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{Binding Title}" FontWeight="Medium"/>
-                                <TextBlock Text="{Binding When, StringFormat='due {0:MMM d}'}" Foreground="Gray"/>
-                                <TextBlock Text="{Binding Detail}" Foreground="Gray"/>
-                            </StackPanel>
+                    <DataTemplate DataType="vm:TodoItemViewModel">
+                        <Border Classes="card" Margin="0,0,0,4">
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                                <CheckBox Grid.Column="0" IsChecked="{Binding IsCompleted}"/>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}" FontWeight="Medium"
+                                               TextDecorations="{Binding IsCompleted, Converter={x:Static conv:BoolToStrikethroughConverter.Instance}}"/>
+                                    <TextBlock Text="{Binding DueDate, StringFormat='due {0:MMM d}'}" Foreground="Gray" IsVisible="{Binding DueDate, Converter={x:Static avconv:ObjectConverters.IsNotNull}}"/>
+                                </StackPanel>
+                                <Button Grid.Column="3" Content="✕" Background="Transparent" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete"/>
+                            </Grid>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
             <TextBlock Text="Custom entries" FontWeight="Bold" FontSize="14"/>
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBox Grid.Column="0" Text="{Binding NewCustomEntryTitle}" PlaceholderText="Add a custom entry for today…"/>
+                <Button Grid.Column="1" Content="Add" Margin="8,0,0,0" Command="{Binding AddCustomEntryCommand}"/>
+            </Grid>
+            <TextBlock Text="No custom entries yet." Classes="empty-state" IsVisible="{Binding CustomEntries.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
             <ItemsControl ItemsSource="{Binding CustomEntries}">
                 <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="vm:CalendarListItemViewModel">
-                        <Border Background="#FFF6E0" CornerRadius="4" Padding="8" Margin="0,0,0,4">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="{Binding Title}" FontWeight="Medium"/>
-                                <TextBlock Text="{Binding When, StringFormat='{}{0:MMM d}'}" Foreground="Gray"/>
-                            </StackPanel>
+                    <DataTemplate DataType="vm:CustomEntryItemViewModel">
+                        <Border Classes="card" Margin="0,0,0,4">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding Title}" FontWeight="Medium"/>
+                                    <TextBlock Text="{Binding EntryDate, StringFormat='{}{0:MMM d}'}" Foreground="Gray"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Content="✕" Background="Transparent" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete"/>
+                            </Grid>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
             <TextBlock Text="Other upcoming events" FontWeight="Bold" FontSize="14"/>
+            <TextBlock Text="Nothing else coming up." Classes="empty-state" IsVisible="{Binding OtherEvents.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
             <ItemsControl ItemsSource="{Binding OtherEvents}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="vm:CalendarListItemViewModel">
-                        <Border Background="#E0F5E9" CornerRadius="4" Padding="8" Margin="0,0,0,4">
+                        <Border Classes="card" Margin="0,0,0,4">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="{Binding Title}" FontWeight="Medium"/>
                                 <TextBlock Text="{Binding When, StringFormat='{}{0:MMM d, h:mm tt}'}" Foreground="Gray"/>
@@ -89,10 +111,11 @@
             </ItemsControl>
 
             <TextBlock Text="Other class sessions" FontWeight="Bold" FontSize="14"/>
+            <TextBlock Text="Nothing outside the weekly grid." Classes="empty-state" IsVisible="{Binding OtherClasses.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
             <ItemsControl ItemsSource="{Binding OtherClasses}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="vm:CalendarListItemViewModel">
-                        <Border Background="#D6E4FF" CornerRadius="4" Padding="8" Margin="0,0,0,4">
+                        <Border Classes="card" Margin="0,0,0,4">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="{Binding Title}" FontWeight="Medium"/>
                                 <TextBlock Text="{Binding When, StringFormat='{}{0:MMM d, h:mm tt}'}" Foreground="Gray"/>

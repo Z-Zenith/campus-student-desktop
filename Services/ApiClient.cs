@@ -45,6 +45,75 @@ public class ApiClient
             ?? new MyCalendarResponse([]);
     }
 
+    // SDA-14: personal to-do / custom-entry CRUD backing Calendar's interactive lists.
+    public async Task<TodoDto> CreateTodoAsync(string title, DateTime? dueDate)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/todos", new CreateTodoRequest(title, dueDate));
+        return await response.Content.ReadFromJsonAsync<TodoDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty to-do response");
+    }
+
+    public async Task<TodoDto> SetTodoCompleteAsync(Guid todoId, bool completed)
+    {
+        var response = await SendAsync(HttpMethod.Patch, $"/api/v1/todos/{todoId}/complete", new SetTodoCompleteRequest(completed));
+        return await response.Content.ReadFromJsonAsync<TodoDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty to-do response");
+    }
+
+    public Task DeleteTodoAsync(Guid todoId) => SendAsync(HttpMethod.Delete, $"/api/v1/todos/{todoId}");
+
+    public async Task<CustomCalendarEntryDto> CreateCustomCalendarEntryAsync(string title, DateOnly entryDate)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/calendar/custom-entries", new CreateCustomCalendarEntryRequest(title, entryDate));
+        return await response.Content.ReadFromJsonAsync<CustomCalendarEntryDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty custom entry response");
+    }
+
+    public Task DeleteCustomCalendarEntryAsync(Guid entryId) => SendAsync(HttpMethod.Delete, $"/api/v1/calendar/custom-entries/{entryId}");
+
+    // SEK-01: the Coding app's "Run" action.
+    public async Task<CodeRunResultDto> RunCodeAsync(string entryFilePath, IReadOnlyList<CodeFileDto> files, string? stdin)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/code/run", new RunCodeProjectRequest(entryFilePath, files, stdin));
+        return await response.Content.ReadFromJsonAsync<CodeRunResultDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty code-run response");
+    }
+
+    // SEK-01: the Coding app's project sidebar/persistence, mirroring the Notes CRUD
+    // pattern (GetMyNotesAsync/GetNoteAsync/CreateNoteAsync/UpdateNoteAsync) exactly.
+    public async Task<List<CodeProjectSummaryDto>> GetMyCodeProjectsAsync()
+    {
+        var response = await SendAsync(HttpMethod.Get, "/api/v1/code/projects/mine");
+        return await response.Content.ReadFromJsonAsync<List<CodeProjectSummaryDto>>(JsonOptions) ?? [];
+    }
+
+    public async Task<CodeProjectDto> GetCodeProjectAsync(Guid projectId)
+    {
+        var response = await SendAsync(HttpMethod.Get, $"/api/v1/code/projects/{projectId}");
+        return await response.Content.ReadFromJsonAsync<CodeProjectDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty code project response");
+    }
+
+    public async Task<CodeProjectDto> CreateCodeProjectAsync(
+        string name, IReadOnlyList<CodeFileDto> files, string entryFilePath, string activeFilePath, string? stdin, Guid? id = null)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/code/projects",
+            new CreateCodeProjectRequest(name, files, entryFilePath, activeFilePath, stdin, id));
+        return await response.Content.ReadFromJsonAsync<CodeProjectDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty code project response");
+    }
+
+    public async Task<CodeProjectDto> UpdateCodeProjectAsync(
+        Guid projectId, string name, IReadOnlyList<CodeFileDto> files, string entryFilePath, string activeFilePath, string? stdin)
+    {
+        var response = await SendAsync(HttpMethod.Patch, $"/api/v1/code/projects/{projectId}",
+            new UpdateCodeProjectRequest(name, files, entryFilePath, activeFilePath, stdin));
+        return await response.Content.ReadFromJsonAsync<CodeProjectDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty code project response");
+    }
+
+    public Task DeleteCodeProjectAsync(Guid projectId) => SendAsync(HttpMethod.Delete, $"/api/v1/code/projects/{projectId}");
+
     public async Task<List<EventDto>> ListEventsAsync()
     {
         var response = await SendAsync(HttpMethod.Get, "/api/v1/events");
@@ -73,6 +142,13 @@ public class ApiClient
 
     // SDA-10: manual submission. The backend flags late submissions and rejects a
     // format mismatch (e.g. a quiz submitted as a file upload) — this just forwards.
+    // SDA-10: the Assignments tile grid's data source.
+    public async Task<List<AssignmentSummaryDto>> GetMyAssignmentsAsync()
+    {
+        var response = await SendAsync(HttpMethod.Get, "/api/v1/assignments/mine");
+        return await response.Content.ReadFromJsonAsync<List<AssignmentSummaryDto>>(JsonOptions) ?? [];
+    }
+
     public async Task<SubmissionDto> SubmitAssignmentAsync(Guid assignmentId, string contentUrl, string submissionFormat)
     {
         var response = await SendAsync(HttpMethod.Post, $"/api/v1/assignments/{assignmentId}/submissions",
@@ -146,6 +222,30 @@ public class ApiClient
         var response = await SendAsync(HttpMethod.Get, "/api/v1/whitelist");
         return await response.Content.ReadFromJsonAsync<WhitelistResponse>(JsonOptions)
             ?? new WhitelistResponse([]);
+    }
+
+    // SDA-04: asks a teacher/admin to approve a site not yet on the whitelist.
+    public async Task<WhitelistRequestDto> RequestWhitelistAsync(string url)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/whitelist/requests", new CreateWhitelistRequestRequest(url));
+        return await response.Content.ReadFromJsonAsync<WhitelistRequestDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty whitelist request response");
+    }
+
+    // SEK-04
+    public async Task<ImageSearchResponseDto> SearchImagesAsync(string query)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/image-search", new ImageSearchRequestBody(query));
+        return await response.Content.ReadFromJsonAsync<ImageSearchResponseDto>(JsonOptions)
+            ?? new ImageSearchResponseDto(query, [], true);
+    }
+
+    public async Task<string> SaveImageAsync(string sourceUrl)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/image-search/save", new SaveImageRequestBody(sourceUrl));
+        var dto = await response.Content.ReadFromJsonAsync<SaveImageResponseDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty save-image response");
+        return dto.Url;
     }
 
     // SDA-08

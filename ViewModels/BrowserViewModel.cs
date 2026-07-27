@@ -27,6 +27,14 @@ public partial class BrowserViewModel : ViewModelBase
     public Func<Task<string?>>? GetPageTitleAsync { get; set; }
     public Func<Task<string?>>? GetSelectedTextAsync { get; set; }
 
+    // Toolbar actions — same delegate-injection pattern as the two above, so this VM
+    // never needs a direct reference to the WebView control.
+    public Action? GoBackRequested { get; set; }
+    public Action? GoForwardRequested { get; set; }
+    public Action? ReloadRequested { get; set; }
+    public Func<bool>? CanGoBack { get; set; }
+    public Func<bool>? CanGoForward { get; set; }
+
     [ObservableProperty]
     private string _urlInput = "";
 
@@ -34,7 +42,27 @@ public partial class BrowserViewModel : ViewModelBase
     private Uri? _currentSource;
 
     [ObservableProperty]
+    private bool _isLoading;
+
+    [ObservableProperty]
+    private string? _pageTitle;
+
+    [ObservableProperty]
     private string? _errorMessage;
+
+    // SDA-04: set alongside ErrorMessage whenever Navigate() blocks a non-whitelisted
+    // site, so the "Request this site" button knows what to request and can hide itself
+    // once the block clears (successful navigation, or a different error).
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RequestWhitelistCommand))]
+    private Uri? _blockedUri;
+
+    [ObservableProperty]
+    private string? _whitelistRequestMessage;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RequestWhitelistCommand))]
+    private bool _isWhitelistRequestBusy;
 
     [ObservableProperty]
     private bool _isClipPanelOpen;
@@ -95,6 +123,8 @@ public partial class BrowserViewModel : ViewModelBase
     private void Navigate()
     {
         ErrorMessage = null;
+        BlockedUri = null;
+        WhitelistRequestMessage = null;
         if (!Uri.TryCreate(UrlInput.Trim(), UriKind.Absolute, out var uri)
             || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
@@ -104,9 +134,65 @@ public partial class BrowserViewModel : ViewModelBase
         if (!IsWhitelisted(uri))
         {
             ErrorMessage = $"\"{uri.Host}\" is not on the whitelist. Ask a teacher to request access.";
+            BlockedUri = uri;
             return;
         }
         CurrentSource = uri;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanGoBackNow))]
+    private void GoBack() => GoBackRequested?.Invoke();
+
+    private bool CanGoBackNow() => CanGoBack?.Invoke() ?? false;
+
+    [RelayCommand(CanExecute = nameof(CanGoForwardNow))]
+    private void GoForward() => GoForwardRequested?.Invoke();
+
+    private bool CanGoForwardNow() => CanGoForward?.Invoke() ?? false;
+
+    [RelayCommand]
+    private void Reload() => ReloadRequested?.Invoke();
+
+    // Called by BrowserView's code-behind after every navigation completes, since
+    // CanGoBack/CanGoForward availability only changes at that point.
+    public void RefreshNavigationState()
+    {
+        GoBackCommand.NotifyCanExecuteChanged();
+        GoForwardCommand.NotifyCanExecuteChanged();
+    }
+
+    private bool CanRequestWhitelist() => BlockedUri is not null && !IsWhitelistRequestBusy;
+
+    // SDA-04: student-initiated request for a site not yet on the whitelist. The backend
+    // treats a duplicate pending request for the same URL as a no-op (returns the existing
+    // one), so it's safe to call again if the student navigates away and back.
+    [RelayCommand(CanExecute = nameof(CanRequestWhitelist))]
+    private async Task RequestWhitelistAsync()
+    {
+        if (BlockedUri is not { } uri)
+        {
+            return;
+        }
+
+        IsWhitelistRequestBusy = true;
+        WhitelistRequestMessage = null;
+        try
+        {
+            await _apiClient.RequestWhitelistAsync(uri.ToString());
+            WhitelistRequestMessage = "Request sent. A teacher will need to approve it.";
+        }
+        catch (ApiException ex)
+        {
+            WhitelistRequestMessage = ex.Message;
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            WhitelistRequestMessage = "Could not reach the server. Check your connection and try again.";
+        }
+        finally
+        {
+            IsWhitelistRequestBusy = false;
+        }
     }
 
     // Called by BrowserView's NavigationStarted handler for every navigation the WebView

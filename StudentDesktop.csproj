@@ -54,6 +54,16 @@
     </Content>
   </ItemGroup>
 
+  <!-- SEK-01: the Coding app's WebView host bundle, built alongside the notes host by the
+       same `npm run build:host` (see scripts/build-host.mjs in shared-editor-kit) — same
+       manual dev prerequisite as SekHost above. -->
+  <ItemGroup>
+    <Content Include="external\shared-editor-kit\dist\host-code\**">
+      <Link>CodeHost\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <!-- SDA-24: DMS-01's MessageInbox/MessageThreadView are React/TypeScript, same
        embedding approach as SDA-19's SEK integration above. campus-direct-messaging is a
        git submodule (external/direct-messaging) pinned to the host-0.1.0 tag. Initialize

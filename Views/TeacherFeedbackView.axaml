@@ -3,6 +3,7 @@
              xmlns:vm="using:StudentDesktop.ViewModels"
              xmlns:models="using:StudentDesktop.Models"
              xmlns:avconv="using:Avalonia.Data.Converters"
+             xmlns:conv="using:StudentDesktop.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="650"
@@ -33,8 +34,19 @@
             <TextBlock Text="No teachers found for your enrolled sections yet." Foreground="Gray"
                        IsVisible="{Binding !Teachers.Count}"/>
 
-            <TextBlock Text="Rating (1-5)"/>
-            <NumericUpDown Value="{Binding Rating}" Minimum="1" Maximum="5" Increment="1" HorizontalAlignment="Left" Width="120"/>
+            <TextBlock Text="Rating"/>
+            <StackPanel Orientation="Horizontal" Spacing="4">
+                <Button FontSize="22" Padding="2" Background="Transparent" Command="{Binding SetRating1Command}"
+                        Content="{Binding Rating, Converter={x:Static conv:RatingStarConverter.Instance}, ConverterParameter=1}"/>
+                <Button FontSize="22" Padding="2" Background="Transparent" Command="{Binding SetRating2Command}"
+                        Content="{Binding Rating, Converter={x:Static conv:RatingStarConverter.Instance}, ConverterParameter=2}"/>
+                <Button FontSize="22" Padding="2" Background="Transparent" Command="{Binding SetRating3Command}"
+                        Content="{Binding Rating, Converter={x:Static conv:RatingStarConverter.Instance}, ConverterParameter=3}"/>
+                <Button FontSize="22" Padding="2" Background="Transparent" Command="{Binding SetRating4Command}"
+                        Content="{Binding Rating, Converter={x:Static conv:RatingStarConverter.Instance}, ConverterParameter=4}"/>
+                <Button FontSize="22" Padding="2" Background="Transparent" Command="{Binding SetRating5Command}"
+                        Content="{Binding Rating, Converter={x:Static conv:RatingStarConverter.Instance}, ConverterParameter=5}"/>
+            </StackPanel>
 
             <TextBlock Text="Comments (optional)"/>
             <TextBox Text="{Binding Comments}" AcceptsReturn="True" TextWrapping="Wrap" Height="100"/>
