@@ -33,7 +33,7 @@ tag independently, so don't assume their versions match:
 
 - **SDA-19** (`SekHost/`) and **SEK-01** (`CodeHost/`): both come from the same submodule,
   `external/shared-editor-kit` → `campus-shared-editor-kit`'s `NotesEditor` and `CodeEditor`
-  respectively, currently pinned to `host-0.5.0`.
+  respectively, currently pinned to `host-0.6.0`.
 - **SDA-24** (`DmsHost/`): `external/direct-messaging` → `campus-direct-messaging`'s
   `MessageInbox`/`MessageThreadView`, currently pinned to `host-0.1.0`.
 
