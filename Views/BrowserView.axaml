@@ -10,34 +10,113 @@
              x:Class="StudentDesktop.Views.BrowserView"
              x:DataType="vm:BrowserViewModel">
 
+    <UserControl.Styles>
+        <!-- Chrome-style rounded-top tab chip, mirroring ShellView's own tab-header/
+             tab-header.selected pattern one level deeper (Browser's own nested tabs). -->
+        <Style Selector="Button.browser-tab">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="CornerRadius" Value="8,8,0,0"/>
+        </Style>
+        <Style Selector="Button.browser-tab.selected">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentSoftBrush}"/>
+        </Style>
+        <Style Selector="Button.browser-tab:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SystemRailBrush}"/>
+        </Style>
+        <!-- Chrome-style circular back/forward/reload icon buttons. -->
+        <Style Selector="Button.browser-nav-button">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="16"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button.browser-nav-button:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SystemRailBrush}"/>
+        </Style>
+        <!-- Chrome-style pill-shaped omnibox. -->
+        <Style Selector="TextBox.browser-address-bar">
+            <Setter Property="CornerRadius" Value="18"/>
+            <Setter Property="Padding" Value="14,6"/>
+        </Style>
+        <Style Selector="ProgressBar.browser-loading-bar">
+            <Setter Property="IsIndeterminate" Value="True"/>
+            <Setter Property="Height" Value="3"/>
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+        </Style>
+    </UserControl.Styles>
+
     <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Margin="12,10" Spacing="6">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
-                <Button Grid.Column="0" Content="←" Command="{Binding GoBackCommand}" Padding="10,4" ToolTip.Tip="Back"/>
-                <Button Grid.Column="1" Content="→" Command="{Binding GoForwardCommand}" Margin="4,0,0,0" Padding="10,4" ToolTip.Tip="Forward"/>
-                <Button Grid.Column="2" Content="⟳" Command="{Binding ReloadCommand}" Margin="4,0,0,0" Padding="10,4" ToolTip.Tip="Reload"/>
-                <TextBox Grid.Column="3" Margin="8,0,0,0" Text="{Binding UrlInput}"
-                         PlaceholderText="https://example.com — only whitelisted sites can be opened"
-                         ToolTip.Tip="{Binding PageTitle}"/>
-                <Button Grid.Column="4" Content="Go" Command="{Binding NavigateCommand}" Margin="8,0,0,0"/>
-            </Grid>
-            <Grid ColumnDefinitions="*,Auto">
-                <ProgressBar Grid.Column="0" Classes="busy-spinner" HorizontalAlignment="Stretch" Width="NaN" IsVisible="{Binding IsLoading}"/>
-                <Button Grid.Column="1" Content="Clip to Notes" Command="{Binding OpenClipPanelCommand}"/>
-            </Grid>
-            <Border Classes="banner-error" IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}">
-                <TextBlock Text="{Binding ErrorMessage}"/>
+        <!-- Chrome-style tab strip: one entry per open BrowserTabViewModel. -->
+        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,0,0,1">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="+" Command="{Binding NewTabCommand}"
+                        Margin="4" Padding="10,4" ToolTip.Tip="New tab"/>
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Tabs}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:BrowserTabViewModel">
+                                <StackPanel Orientation="Horizontal" Classes.selected="{Binding IsSelected}">
+                                    <Button Classes="browser-tab" Classes.selected="{Binding IsSelected}"
+                                            Command="{Binding $parent[UserControl].((vm:BrowserViewModel)DataContext).SelectTabCommand}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6" MaxWidth="160">
+                                            <TextBlock Text="🌐"/>
+                                            <TextBlock Text="{Binding DisplayTitle}" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Content="✕" Command="{Binding CloseCommand}"
+                                            Padding="6,8" Background="Transparent" ToolTip.Tip="Close tab"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <StackPanel DockPanel.Dock="Top" Spacing="0">
+            <Border Classes="banner-error" IsVisible="{Binding WhitelistLoadError, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}" Margin="12,10,12,0">
+                <TextBlock Text="{Binding WhitelistLoadError}"/>
             </Border>
-            <Border Classes="banner-warning" IsVisible="{Binding BlockedUri, Converter={x:Static avconv:ObjectConverters.IsNotNull}}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button Content="Request this site" Command="{Binding RequestWhitelistCommand}"/>
-                    <TextBlock Text="{Binding WhitelistRequestMessage}" VerticalAlignment="Center" TextWrapping="Wrap"
-                               IsVisible="{Binding WhitelistRequestMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
-                </StackPanel>
-            </Border>
+
+            <StackPanel Margin="12,10" Spacing="6" DataContext="{Binding SelectedTab}" x:DataType="vm:BrowserTabViewModel">
+                <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+                    <Button Grid.Column="0" Classes="browser-nav-button" Content="←" Command="{Binding GoBackCommand}" ToolTip.Tip="Back"/>
+                    <Button Grid.Column="1" Classes="browser-nav-button" Content="→" Command="{Binding GoForwardCommand}" Margin="4,0,0,0" ToolTip.Tip="Forward"/>
+                    <Button Grid.Column="2" Classes="browser-nav-button" Content="⟳" Command="{Binding ReloadCommand}" Margin="4,0,0,0" ToolTip.Tip="Reload"/>
+                    <TextBox Grid.Column="3" Classes="browser-address-bar" Margin="8,0,0,0" Text="{Binding UrlInput}"
+                             PlaceholderText="https://example.com — only whitelisted sites can be opened"
+                             ToolTip.Tip="{Binding PageTitle}"/>
+                    <Button Grid.Column="4" Content="Go" Command="{Binding NavigateCommand}" Margin="8,0,0,0"/>
+                </Grid>
+                <ProgressBar Classes="browser-loading-bar" IsVisible="{Binding IsLoading}"/>
+                <Grid ColumnDefinitions="*,Auto">
+                    <Border Grid.Column="1"/>
+                    <Button Grid.Column="1" Content="Clip to Notes"
+                            Command="{Binding $parent[UserControl].((vm:BrowserViewModel)DataContext).OpenClipPanelCommand}"/>
+                </Grid>
+                <Border Classes="banner-error" IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding ErrorMessage}"/>
+                </Border>
+                <Border Classes="banner-warning" IsVisible="{Binding BlockedUri, Converter={x:Static avconv:ObjectConverters.IsNotNull}}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Request this site" Command="{Binding RequestWhitelistCommand}"/>
+                        <TextBlock Text="{Binding WhitelistRequestMessage}" VerticalAlignment="Center" TextWrapping="Wrap"
+                                   IsVisible="{Binding WhitelistRequestMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
         </StackPanel>
 
-        <Border DockPanel.Dock="Right" Width="360" BorderBrush="#DDDDDD" BorderThickness="1,0,0,0" Padding="16"
+        <Border DockPanel.Dock="Right" Width="360" BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="1,0,0,0" Padding="16"
                 IsVisible="{Binding IsClipPanelOpen}">
             <ScrollViewer>
                 <StackPanel Spacing="10">
@@ -65,22 +144,52 @@
                     <TextBlock Text="Content to clip"/>
                     <TextBox Text="{Binding ClipContent}" AcceptsReturn="True" TextWrapping="Wrap" Height="160"/>
                     <TextBlock Text="Pre-filled from your current text selection on the page, if any — edit freely before saving."
-                               TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+                               TextWrapping="Wrap" Foreground="{DynamicResource SystemMutedTextBrush}" FontSize="11"/>
 
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Content="Save" Command="{Binding SaveClipCommand}"/>
                         <Button Content="Cancel" Command="{Binding CloseClipPanelCommand}"/>
                     </StackPanel>
 
-                    <TextBlock Text="{Binding ClipErrorMessage}" Foreground="IndianRed" TextWrapping="Wrap"
+                    <TextBlock Text="{Binding ClipErrorMessage}" Foreground="{DynamicResource SystemErrorBrush}" TextWrapping="Wrap"
                                IsVisible="{Binding ClipErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
-                    <TextBlock Text="{Binding ClipSuccessMessage}" Foreground="Green" TextWrapping="Wrap"
+                    <TextBlock Text="{Binding ClipSuccessMessage}" Foreground="{DynamicResource SystemSuccessBrush}" TextWrapping="Wrap"
                                IsVisible="{Binding ClipSuccessMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
                 </StackPanel>
             </ScrollViewer>
         </Border>
 
-        <webview:NativeWebView x:Name="WebViewControl" Source="{Binding CurrentSource}"/>
+        <!-- Every tab's NativeWebView stays mounted (just hidden) across tab switches —
+             a ContentControl swap (like Shell's own app-level tabs use) would destroy and
+             recreate the control, losing that tab's navigation history/scroll position. -->
+        <Panel>
+            <ItemsControl ItemsSource="{Binding Tabs}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <Panel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="vm:BrowserTabViewModel">
+                        <Grid>
+                            <webview:NativeWebView Source="{Binding CurrentSource}" IsVisible="{Binding IsSelected}"
+                                                    Loaded="OnWebViewLoaded"
+                                                    NavigationStarted="OnNavigationStarted"
+                                                    NavigationCompleted="OnNavigationCompleted"/>
+                            <TextBlock Text="Enter a whitelisted address above to get started"
+                                       Classes="empty-state" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock.IsVisible>
+                                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                        <Binding Path="IsSelected"/>
+                                        <Binding Path="CurrentSource" Converter="{x:Static avconv:ObjectConverters.IsNull}"/>
+                                    </MultiBinding>
+                                </TextBlock.IsVisible>
+                            </TextBlock>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Panel>
     </DockPanel>
 
 </UserControl>

@@ -11,58 +11,25 @@ using StudentDesktop.Services;
 
 namespace StudentDesktop.ViewModels;
 
-// SDA-03/SDA-04: whitelisted browser. SDA-08: clip the current page into a note.
+// SDA-03/SDA-04: whitelisted, Chrome-style multi-tab browser. SDA-08: clip the current
+// (active tab's) page into a note.
 //
-// The WebView control itself lives in BrowserView.axaml (a UI concern) — this ViewModel
-// stays testable/UI-agnostic by exposing GetPageTitleAsync/GetSelectedTextAsync as
-// delegates the View's code-behind wires up to the actual WebView's InvokeScript calls,
-// rather than this ViewModel holding a reference to an Avalonia control.
+// Per-page navigation/whitelist state lives on BrowserTabViewModel — this VM is the tab
+// container: it owns the shared, college-wide whitelist (loaded once, not per-tab) and
+// hands each tab two narrow delegates (IsWhitelisted / RequestWhitelistAsync) rather than
+// an ApiClient reference, so BrowserTabViewModel stays testable standalone.
 public partial class BrowserViewModel : ViewModelBase
 {
     private readonly ApiClient _apiClient;
     private List<string> _whitelistedHosts = [];
 
-    // Wired by BrowserView's code-behind to the real WebView. Left null-safe so this
-    // ViewModel can be constructed and exercised without a live WebView (e.g. in tests).
-    public Func<Task<string?>>? GetPageTitleAsync { get; set; }
-    public Func<Task<string?>>? GetSelectedTextAsync { get; set; }
-
-    // Toolbar actions — same delegate-injection pattern as the two above, so this VM
-    // never needs a direct reference to the WebView control.
-    public Action? GoBackRequested { get; set; }
-    public Action? GoForwardRequested { get; set; }
-    public Action? ReloadRequested { get; set; }
-    public Func<bool>? CanGoBack { get; set; }
-    public Func<bool>? CanGoForward { get; set; }
+    public ObservableCollection<BrowserTabViewModel> Tabs { get; } = [];
 
     [ObservableProperty]
-    private string _urlInput = "";
+    private BrowserTabViewModel? _selectedTab;
 
     [ObservableProperty]
-    private Uri? _currentSource;
-
-    [ObservableProperty]
-    private bool _isLoading;
-
-    [ObservableProperty]
-    private string? _pageTitle;
-
-    [ObservableProperty]
-    private string? _errorMessage;
-
-    // SDA-04: set alongside ErrorMessage whenever Navigate() blocks a non-whitelisted
-    // site, so the "Request this site" button knows what to request and can hide itself
-    // once the block clears (successful navigation, or a different error).
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RequestWhitelistCommand))]
-    private Uri? _blockedUri;
-
-    [ObservableProperty]
-    private string? _whitelistRequestMessage;
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(RequestWhitelistCommand))]
-    private bool _isWhitelistRequestBusy;
+    private string? _whitelistLoadError;
 
     [ObservableProperty]
     private bool _isClipPanelOpen;
@@ -94,6 +61,11 @@ public partial class BrowserViewModel : ViewModelBase
     {
         _apiClient = apiClient;
         _ = LoadWhitelistAsync();
+        // A browser always opens with exactly one tab, like a real browser window —
+        // closing the last remaining tab resets to a fresh blank one rather than ever
+        // leaving zero tabs (Browser is a persistent app-tab in Shell, not a closable
+        // window of its own).
+        NewTab();
     }
 
     [RelayCommand]
@@ -111,101 +83,87 @@ public partial class BrowserViewModel : ViewModelBase
         }
         catch (ApiException ex)
         {
-            ErrorMessage = ex.Message;
+            WhitelistLoadError = ex.Message;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            ErrorMessage = "Could not reach the server. Check your connection and try again.";
+            WhitelistLoadError = "Could not reach the server. Check your connection and try again.";
         }
     }
 
-    [RelayCommand]
-    private void Navigate()
+    // Passed into each BrowserTabViewModel as a delegate — the exact same fail-closed
+    // exact-host-match check every tab shared before this VM had per-tab navigation state.
+    public bool IsWhitelisted(Uri uri) => _whitelistedHosts.Contains(uri.Host.ToLowerInvariant());
+
+    // Passed into each BrowserTabViewModel as a delegate. Never throws — always resolves
+    // to the message the tab should display, preserving the exact same wording the old
+    // single-tab RequestWhitelistAsync produced for each outcome.
+    private async Task<string> RequestWhitelistAsync(Uri uri)
     {
-        ErrorMessage = null;
-        BlockedUri = null;
-        WhitelistRequestMessage = null;
-        if (!Uri.TryCreate(UrlInput.Trim(), UriKind.Absolute, out var uri)
-            || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
-        {
-            ErrorMessage = "Enter a valid http:// or https:// address.";
-            return;
-        }
-        if (!IsWhitelisted(uri))
-        {
-            ErrorMessage = $"\"{uri.Host}\" is not on the whitelist. Ask a teacher to request access.";
-            BlockedUri = uri;
-            return;
-        }
-        CurrentSource = uri;
-    }
-
-    [RelayCommand(CanExecute = nameof(CanGoBackNow))]
-    private void GoBack() => GoBackRequested?.Invoke();
-
-    private bool CanGoBackNow() => CanGoBack?.Invoke() ?? false;
-
-    [RelayCommand(CanExecute = nameof(CanGoForwardNow))]
-    private void GoForward() => GoForwardRequested?.Invoke();
-
-    private bool CanGoForwardNow() => CanGoForward?.Invoke() ?? false;
-
-    [RelayCommand]
-    private void Reload() => ReloadRequested?.Invoke();
-
-    // Called by BrowserView's code-behind after every navigation completes, since
-    // CanGoBack/CanGoForward availability only changes at that point.
-    public void RefreshNavigationState()
-    {
-        GoBackCommand.NotifyCanExecuteChanged();
-        GoForwardCommand.NotifyCanExecuteChanged();
-    }
-
-    private bool CanRequestWhitelist() => BlockedUri is not null && !IsWhitelistRequestBusy;
-
-    // SDA-04: student-initiated request for a site not yet on the whitelist. The backend
-    // treats a duplicate pending request for the same URL as a no-op (returns the existing
-    // one), so it's safe to call again if the student navigates away and back.
-    [RelayCommand(CanExecute = nameof(CanRequestWhitelist))]
-    private async Task RequestWhitelistAsync()
-    {
-        if (BlockedUri is not { } uri)
-        {
-            return;
-        }
-
-        IsWhitelistRequestBusy = true;
-        WhitelistRequestMessage = null;
         try
         {
             await _apiClient.RequestWhitelistAsync(uri.ToString());
-            WhitelistRequestMessage = "Request sent. A teacher will need to approve it.";
+            return "Request sent. A teacher will need to approve it.";
         }
         catch (ApiException ex)
         {
-            WhitelistRequestMessage = ex.Message;
+            return ex.Message;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
         {
-            WhitelistRequestMessage = "Could not reach the server. Check your connection and try again.";
-        }
-        finally
-        {
-            IsWhitelistRequestBusy = false;
+            return "Could not reach the server. Check your connection and try again.";
         }
     }
 
-    // Called by BrowserView's NavigationStarted handler for every navigation the WebView
-    // itself initiates (link clicks, redirects) — not just the ones this ViewModel
-    // triggered via Navigate(), since those also need the same enforcement.
-    public bool IsWhitelisted(Uri uri) => _whitelistedHosts.Contains(uri.Host.ToLowerInvariant());
+    [RelayCommand]
+    private void NewTab()
+    {
+        var tab = new BrowserTabViewModel(IsWhitelisted, RequestWhitelistAsync, OnTabClosed);
+        Tabs.Add(tab);
+        SelectTab(tab);
+    }
+
+    [RelayCommand]
+    private void SelectTab(BrowserTabViewModel tab)
+    {
+        if (SelectedTab is not null)
+        {
+            SelectedTab.IsSelected = false;
+        }
+        SelectedTab = tab;
+        tab.IsSelected = true;
+    }
+
+    private void OnTabClosed(BrowserTabViewModel tab)
+    {
+        var index = Tabs.IndexOf(tab);
+        if (index < 0)
+        {
+            return;
+        }
+        Tabs.RemoveAt(index);
+
+        if (Tabs.Count == 0)
+        {
+            NewTab();
+            return;
+        }
+        if (SelectedTab == tab)
+        {
+            SelectTab(Tabs[Math.Min(index, Tabs.Count - 1)]);
+        }
+    }
 
     [RelayCommand]
     private async Task OpenClipPanelAsync()
     {
-        if (CurrentSource is null)
+        var tab = SelectedTab;
+        if (tab?.CurrentSource is null)
         {
-            ErrorMessage = "Navigate to a whitelisted page first.";
+            if (tab is not null)
+            {
+                tab.ErrorMessage = "Navigate to a whitelisted page first.";
+            }
             return;
         }
 
@@ -214,10 +172,10 @@ public partial class BrowserViewModel : ViewModelBase
         IsNewNote = true;
         SelectedExistingNote = null;
 
-        var title = GetPageTitleAsync is not null ? await GetPageTitleAsync() : null;
-        ClipNoteTitle = string.IsNullOrWhiteSpace(title) ? CurrentSource.Host : title;
+        var title = tab.GetPageTitleAsync is not null ? await tab.GetPageTitleAsync() : null;
+        ClipNoteTitle = string.IsNullOrWhiteSpace(title) ? tab.CurrentSource.Host : title;
 
-        var selection = GetSelectedTextAsync is not null ? await GetSelectedTextAsync() : null;
+        var selection = tab.GetSelectedTextAsync is not null ? await tab.GetSelectedTextAsync() : null;
         ClipContent = selection ?? "";
 
         try
@@ -250,7 +208,8 @@ public partial class BrowserViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanSaveClip))]
     private async Task SaveClipAsync()
     {
-        if (CurrentSource is null)
+        var currentSource = SelectedTab?.CurrentSource;
+        if (currentSource is null)
         {
             return;
         }
@@ -265,7 +224,7 @@ public partial class BrowserViewModel : ViewModelBase
             return;
         }
 
-        var clipBlock = $"> Clipped from [{ClipNoteTitle}]({CurrentSource})\n\n{ClipContent}".TrimEnd();
+        var clipBlock = $"> Clipped from [{ClipNoteTitle}]({currentSource})\n\n{ClipContent}".TrimEnd();
 
         IsClipBusy = true;
         ClipErrorMessage = null;
