@@ -19,6 +19,19 @@ public class DmsBridgeTests
         return (bridge, () => lastScript);
     }
 
+    // window.__dmsHostMount/__dmsHostReceive both take a JSON *string* argument (see
+    // DmsBridge's InvokeScript calls) — the script is
+    // "window.<fn>(<JSON-encoded-string-literal>)", so unwrap that outer string encoding
+    // to get back the actual JSON payload the JS side would JSON.parse.
+    private static string ExtractPayload(string script, string functionName)
+    {
+        var prefix = $"window.{functionName}(";
+        var start = script.IndexOf(prefix, StringComparison.Ordinal) + prefix.Length;
+        var end = script.LastIndexOf(')');
+        var stringLiteral = script[start..end];
+        return JsonSerializer.Deserialize<string>(stringLiteral)!;
+    }
+
     // SDA-24: no reachable server, so every request must fail closed with a mapped
     // DmsError rather than throwing out of HandleMessageAsync and crashing the WebView
     // message pump.
@@ -32,9 +45,10 @@ public class DmsBridgeTests
 
         var script = lastScript();
         Assert.NotNull(script);
-        Assert.Contains("list-1", script);
-        Assert.Contains("\"ok\":false", script);
-        Assert.Contains("network_error", script);
+        var response = ExtractPayload(script, "__dmsHostReceive");
+        Assert.Contains("list-1", response);
+        Assert.Contains("\"ok\":false", response);
+        Assert.Contains("network_error", response);
     }
 
     [Fact]
@@ -47,8 +61,9 @@ public class DmsBridgeTests
 
         var script = lastScript();
         Assert.NotNull(script);
-        Assert.Contains("msgs-1", script);
-        Assert.Contains("\"ok\":false", script);
+        var response = ExtractPayload(script, "__dmsHostReceive");
+        Assert.Contains("msgs-1", response);
+        Assert.Contains("\"ok\":false", response);
     }
 
     [Fact]
@@ -66,8 +81,9 @@ public class DmsBridgeTests
 
         var script = lastScript();
         Assert.NotNull(script);
-        Assert.Contains("send-1", script);
-        Assert.Contains("\"ok\":false", script);
+        var response = ExtractPayload(script, "__dmsHostReceive");
+        Assert.Contains("send-1", response);
+        Assert.Contains("\"ok\":false", response);
     }
 
     [Fact]
@@ -105,7 +121,8 @@ public class DmsBridgeTests
         var script = lastScript();
         Assert.NotNull(script);
         Assert.Contains("__dmsHostMount", script);
-        Assert.Contains(userId.ToString(), script);
-        Assert.Contains("\"role\":\"student\"", script);
+        var payload = ExtractPayload(script, "__dmsHostMount");
+        Assert.Contains(userId.ToString(), payload);
+        Assert.Contains("\"role\":\"student\"", payload);
     }
 }

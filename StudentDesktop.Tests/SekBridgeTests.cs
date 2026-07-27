@@ -19,6 +19,19 @@ public class SekBridgeTests
         return (bridge, () => lastScript);
     }
 
+    // window.__sekHostMount/__sekHostReceive both take a JSON *string* argument (see
+    // SekBridge's InvokeScript calls) — the script is
+    // "window.<fn>(<JSON-encoded-string-literal>)", so unwrap that outer string encoding
+    // to get back the actual JSON payload the JS side would JSON.parse.
+    private static string ExtractPayload(string script, string functionName)
+    {
+        var prefix = $"window.{functionName}(";
+        var start = script.IndexOf(prefix, StringComparison.Ordinal) + prefix.Length;
+        var end = script.LastIndexOf(')');
+        var stringLiteral = script[start..end];
+        return JsonSerializer.Deserialize<string>(stringLiteral)!;
+    }
+
     // SDA-19: no reachable server, so every request must fail closed with a mapped
     // SekError rather than throwing out of HandleMessageAsync and crashing the WebView
     // message pump.
@@ -41,9 +54,10 @@ public class SekBridgeTests
 
         var script = lastScript();
         Assert.NotNull(script);
-        Assert.Contains("save-1", script);
-        Assert.Contains("\"ok\":false", script);
-        Assert.Contains("network_error", script);
+        var response = ExtractPayload(script, "__sekHostReceive");
+        Assert.Contains("save-1", response);
+        Assert.Contains("\"ok\":false", response);
+        Assert.Contains("network_error", response);
     }
 
     [Fact]
@@ -70,8 +84,9 @@ public class SekBridgeTests
 
         var script = lastScript();
         Assert.NotNull(script);
-        Assert.Contains("del-1", script);
-        Assert.Contains("\"ok\":false", script);
+        var response = ExtractPayload(script, "__sekHostReceive");
+        Assert.Contains("del-1", response);
+        Assert.Contains("\"ok\":false", response);
     }
 
     [Fact]
@@ -84,8 +99,9 @@ public class SekBridgeTests
 
         var script = lastScript();
         Assert.NotNull(script);
-        Assert.Contains("resolve-1", script);
-        Assert.Contains("\"ok\":false", script);
+        var response = ExtractPayload(script, "__sekHostReceive");
+        Assert.Contains("resolve-1", response);
+        Assert.Contains("\"ok\":false", response);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using StudentDesktop.Services;
 using StudentDesktop.ViewModels;
 
@@ -5,6 +6,19 @@ namespace StudentDesktop.Tests;
 
 public class NotesViewModelTests
 {
+    // window.__sekHostMount takes a JSON *string* argument (see SekBridge's InvokeScript
+    // call) — the script is "window.<fn>(<JSON-encoded-string-literal>)", so unwrap that
+    // outer string encoding to get back the actual JSON payload the JS side would
+    // JSON.parse.
+    private static string ExtractPayload(string script, string functionName)
+    {
+        var prefix = $"window.{functionName}(";
+        var start = script.IndexOf(prefix, StringComparison.Ordinal) + prefix.Length;
+        var end = script.LastIndexOf(')');
+        var stringLiteral = script[start..end];
+        return JsonSerializer.Deserialize<string>(stringLiteral)!;
+    }
+
     // SDA-19: no reachable server, so the initial note-list load must fail closed with an
     // ErrorMessage rather than throwing out of the constructor's fire-and-forget load.
     [Fact]
@@ -40,6 +54,7 @@ public class NotesViewModelTests
 
         Assert.Null(viewModel.SelectedNote);
         Assert.NotNull(lastScript);
-        Assert.Contains("\"currentNote\":null", lastScript);
+        var payload = ExtractPayload(lastScript, "__sekHostMount");
+        Assert.Contains("\"currentNote\":null", payload);
     }
 }
