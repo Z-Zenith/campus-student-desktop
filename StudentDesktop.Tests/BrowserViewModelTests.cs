@@ -30,6 +30,39 @@ public class BrowserViewModelTests
     }
 
     [Fact]
+    public void SDA04_NavigateBlockedSiteExposesItForRequest()
+    {
+        var viewModel = new BrowserViewModel(new ApiClient("http://localhost:0")) { UrlInput = "https://not-whitelisted.example.com" };
+
+        viewModel.NavigateCommand.Execute(null);
+
+        Assert.Equal(new Uri("https://not-whitelisted.example.com"), viewModel.BlockedUri);
+        Assert.True(viewModel.RequestWhitelistCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public void SDA04_NavigateToInvalidUrlDoesNotOfferAWhitelistRequest()
+    {
+        var viewModel = new BrowserViewModel(new ApiClient("http://localhost:0")) { UrlInput = "ftp://example.com" };
+
+        viewModel.NavigateCommand.Execute(null);
+
+        Assert.Null(viewModel.BlockedUri);
+        Assert.False(viewModel.RequestWhitelistCommand.CanExecute(null));
+    }
+
+    [Fact]
+    public async Task SDA04_RequestWhitelistSurfacesUnreachableServerAsAMessage()
+    {
+        var viewModel = new BrowserViewModel(new ApiClient("http://localhost:0")) { UrlInput = "https://not-whitelisted.example.com" };
+        viewModel.NavigateCommand.Execute(null);
+
+        await viewModel.RequestWhitelistCommand.ExecuteAsync(null);
+
+        Assert.Equal("Could not reach the server. Check your connection and try again.", viewModel.WhitelistRequestMessage);
+    }
+
+    [Fact]
     public async Task SDA08_SaveClipRequiresTitleForNewNote()
     {
         // Whitelist is empty without a reachable server, so drive CurrentSource

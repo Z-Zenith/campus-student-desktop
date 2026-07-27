@@ -11,17 +11,30 @@
              x:DataType="vm:BrowserViewModel">
 
     <DockPanel>
-        <StackPanel DockPanel.Dock="Top" Margin="16,12" Spacing="8">
-            <TextBlock Text="Whitelisted Browser" FontSize="20" FontWeight="Bold"/>
-            <TextBlock Text="Only sites your institution has whitelisted (SDA-03/SDA-04) can be opened here."
-                       TextWrapping="Wrap" Foreground="Gray"/>
-            <Grid ColumnDefinitions="*,Auto,Auto">
-                <TextBox Grid.Column="0" Text="{Binding UrlInput}" PlaceholderText="https://example.com"/>
-                <Button Grid.Column="1" Content="Go" Command="{Binding NavigateCommand}" Margin="8,0,0,0"/>
-                <Button Grid.Column="2" Content="Clip to Notes" Command="{Binding OpenClipPanelCommand}" Margin="8,0,0,0"/>
+        <StackPanel DockPanel.Dock="Top" Margin="12,10" Spacing="6">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+                <Button Grid.Column="0" Content="←" Command="{Binding GoBackCommand}" Padding="10,4" ToolTip.Tip="Back"/>
+                <Button Grid.Column="1" Content="→" Command="{Binding GoForwardCommand}" Margin="4,0,0,0" Padding="10,4" ToolTip.Tip="Forward"/>
+                <Button Grid.Column="2" Content="⟳" Command="{Binding ReloadCommand}" Margin="4,0,0,0" Padding="10,4" ToolTip.Tip="Reload"/>
+                <TextBox Grid.Column="3" Margin="8,0,0,0" Text="{Binding UrlInput}"
+                         PlaceholderText="https://example.com — only whitelisted sites can be opened"
+                         ToolTip.Tip="{Binding PageTitle}"/>
+                <Button Grid.Column="4" Content="Go" Command="{Binding NavigateCommand}" Margin="8,0,0,0"/>
             </Grid>
-            <TextBlock Text="{Binding ErrorMessage}" Foreground="IndianRed" TextWrapping="Wrap"
-                       IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
+            <Grid ColumnDefinitions="*,Auto">
+                <ProgressBar Grid.Column="0" Classes="busy-spinner" HorizontalAlignment="Stretch" Width="NaN" IsVisible="{Binding IsLoading}"/>
+                <Button Grid.Column="1" Content="Clip to Notes" Command="{Binding OpenClipPanelCommand}"/>
+            </Grid>
+            <Border Classes="banner-error" IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding ErrorMessage}"/>
+            </Border>
+            <Border Classes="banner-warning" IsVisible="{Binding BlockedUri, Converter={x:Static avconv:ObjectConverters.IsNotNull}}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button Content="Request this site" Command="{Binding RequestWhitelistCommand}"/>
+                    <TextBlock Text="{Binding WhitelistRequestMessage}" VerticalAlignment="Center" TextWrapping="Wrap"
+                               IsVisible="{Binding WhitelistRequestMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
+                </StackPanel>
+            </Border>
         </StackPanel>
 
         <Border DockPanel.Dock="Right" Width="360" BorderBrush="#DDDDDD" BorderThickness="1,0,0,0" Padding="16"

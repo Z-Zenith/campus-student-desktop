@@ -29,6 +29,24 @@ public partial class TeacherFeedbackViewModel : ViewModelBase
     [ObservableProperty]
     private string? _comments;
 
+    // A 1-5 star row is a clearer rating affordance than a spinner — 5 fixed commands
+    // (rather than one parameterized command) avoids CommandParameter type-coercion
+    // pitfalls in Avalonia's compiled bindings for a plain int.
+    [RelayCommand]
+    private void SetRating1() => Rating = 1;
+
+    [RelayCommand]
+    private void SetRating2() => Rating = 2;
+
+    [RelayCommand]
+    private void SetRating3() => Rating = 3;
+
+    [RelayCommand]
+    private void SetRating4() => Rating = 4;
+
+    [RelayCommand]
+    private void SetRating5() => Rating = 5;
+
     // SubmitCommand's CanExecute is re-evaluated whenever this changes (see below) — the
     // XAML IsEnabled binding alone isn't a hard guard against a second click landing before
     // the UI re-renders, and a double-submit here means a real duplicate row in

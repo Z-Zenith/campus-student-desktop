@@ -15,6 +15,13 @@ public partial class MessagesView : UserControl
     {
         InitializeComponent();
         MessagesWebView.WebMessageReceived += OnWebMessageReceived;
+        MessagesWebView.NavigationCompleted += (_, _) =>
+        {
+            if (DataContext is MessagesViewModel vm)
+            {
+                vm.IsLoaded = true;
+            }
+        };
         DataContextChanged += (_, _) => WireViewModel();
         MessagesWebView.Navigate(new Uri(Path.Combine(AppContext.BaseDirectory, HostIndexRelativePath)));
     }

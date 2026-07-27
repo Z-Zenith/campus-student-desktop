@@ -22,6 +22,11 @@ public partial class NotesViewModel : ViewModelBase
 
     public ObservableCollection<NoteSummaryDto> Notes { get; } = [];
 
+    // Toggled by NotesView's code-behind once the WebView's NavigationCompleted fires, so
+    // a slow/missing host bundle shows "Loading…" instead of a silent blank rectangle.
+    [ObservableProperty]
+    private bool _isLoaded;
+
     [ObservableProperty]
     private string? _errorMessage;
 

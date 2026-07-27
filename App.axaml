@@ -30,5 +30,6 @@
             </FluentTheme.Palettes>
         </FluentTheme>
         <StyleInclude Source="avares://StudentDesktop/Styles/ButtonAccent.axaml" />
+        <StyleInclude Source="avares://StudentDesktop/Styles/Theme.axaml"/>
     </Application.Styles>
 </Application>

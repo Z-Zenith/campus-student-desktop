@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
 using StudentDesktop.Services;
 
 namespace StudentDesktop.ViewModels;
@@ -13,6 +14,11 @@ public partial class MessagesViewModel : ViewModelBase
     private readonly Guid _userId;
 
     public DmsBridge Bridge { get; }
+
+    // Toggled by MessagesView's code-behind once the WebView's NavigationCompleted fires,
+    // so a slow/missing host bundle shows "Loading…" instead of a silent blank rectangle.
+    [ObservableProperty]
+    private bool _isLoaded;
 
     public MessagesViewModel(ApiClient apiClient, Guid userId)
     {
