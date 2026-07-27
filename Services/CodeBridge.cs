@@ -27,6 +27,13 @@ public sealed class CodeBridge(ApiClient apiClient)
     /// Raised after a save completes successfully, so the project list can refresh.
     public event Action? ProjectChanged;
 
+    /// Raised when the host bundle's window.__sekHostMount call completes successfully.
+    public event Action? MountSucceeded;
+
+    /// Raised when window.__sekHostMount throws — see code-host-entry.tsx's try/catch
+    /// around the mount body. message is the JS error's String(error) rendering.
+    public event Action<string>? MountFailed;
+
     public async Task MountAsync(Guid userId, CodeProjectDto? currentProject, bool canRun, bool canEdit)
     {
         var user = new SekUserContext(userId.ToString(), apiClient.Token ?? "", "student", "");
@@ -36,11 +43,33 @@ public sealed class CodeBridge(ApiClient apiClient)
         {
             return;
         }
-        await InvokeScript($"window.__sekHostMount({JsonSerializer.Serialize(mount, JsonOptions)})");
+        // __sekHostMount(json: string) does JSON.parse(json) — it needs a JSON *string*
+        // argument, so the payload has to be serialized twice: once to produce the JSON,
+        // once more to turn that JSON into a quoted/escaped JS string literal. Serializing
+        // only once interpolates a bare object literal, which JSON.parse coerces to the
+        // literal text "[object Object]" and fails to parse — silently, since a thrown
+        // error inside a WebView2 ExecuteScriptAsync call never surfaces as a .NET exception.
+        var mountJson = JsonSerializer.Serialize(mount, JsonOptions);
+        await InvokeScript($"window.__sekHostMount({JsonSerializer.Serialize(mountJson)})");
     }
 
     public async Task HandleMessageAsync(string json)
     {
+        // Distinct from the {requestId, method, payload} bridge protocol below — these
+        // are the mount-ready/mount-failed signals code-host-entry.tsx posts from inside
+        // window.__sekHostMount's try/catch, not a request awaiting a reply.
+        var signal = JsonSerializer.Deserialize<HostSignal>(json, JsonOptions);
+        if (signal?.Type == "sekHostMounted")
+        {
+            MountSucceeded?.Invoke();
+            return;
+        }
+        if (signal?.Type == "sekHostMountFailed")
+        {
+            MountFailed?.Invoke(signal.Message ?? "Unknown error.");
+            return;
+        }
+
         var request = JsonSerializer.Deserialize<BridgeRequest>(json, JsonOptions);
         if (request is null)
         {
@@ -67,7 +96,8 @@ public sealed class CodeBridge(ApiClient apiClient)
         {
             return;
         }
-        await InvokeScript($"window.__sekHostReceive({JsonSerializer.Serialize(response, JsonOptions)})");
+        var responseJson = JsonSerializer.Serialize(response, JsonOptions);
+        await InvokeScript($"window.__sekHostReceive({JsonSerializer.Serialize(responseJson)})");
     }
 
     private async Task<BridgeResponse> RunAsync(string requestId, JsonElement payload)
@@ -126,6 +156,7 @@ public sealed class CodeBridge(ApiClient apiClient)
         _ => new SekErrorDto("network_error", "Could not reach the server. Check your connection and try again."),
     };
 
+    private sealed record HostSignal(string? Type, string? Message);
     private sealed record BridgeRequest(string RequestId, string Method, JsonElement Payload);
     private sealed record BridgeResponse(string RequestId, bool Ok, object? Value, SekErrorDto? Error);
     private sealed record SekErrorDto(string Code, string Message);

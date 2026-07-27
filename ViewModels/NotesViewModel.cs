@@ -22,8 +22,12 @@ public partial class NotesViewModel : ViewModelBase
 
     public ObservableCollection<NoteSummaryDto> Notes { get; } = [];
 
-    // Toggled by NotesView's code-behind once the WebView's NavigationCompleted fires, so
-    // a slow/missing host bundle shows "Loading…" instead of a silent blank rectangle.
+    // Toggled by NotesView's code-behind once the WebView's NavigationCompleted fires.
+    // Unlike CodeEditorViewModel, Notes doesn't auto-mount an editor on open (no note is
+    // selected yet), so "loaded" here means "the WebView shell is ready," not "an editor
+    // is mounted" — a blank pane with no note open is the correct resting state. Mount
+    // failures (once the student does pick/create a note) surface via ErrorMessage
+    // instead, from Bridge.MountFailed below.
     [ObservableProperty]
     private bool _isLoaded;
 
@@ -39,6 +43,7 @@ public partial class NotesViewModel : ViewModelBase
         _userId = userId;
         Bridge = new SekBridge(apiClient);
         Bridge.NoteChanged += () => _ = LoadNotesAsync();
+        Bridge.MountFailed += message => ErrorMessage = $"Failed to load the note editor: {message}";
         _ = LoadNotesAsync();
     }
 

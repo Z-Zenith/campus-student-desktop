@@ -23,9 +23,10 @@ public partial class CodeEditorViewModel : ViewModelBase
 
     public ObservableCollection<CodeProjectSummaryDto> Projects { get; } = [];
 
-    // Toggled by CodeEditorView's code-behind once the WebView's NavigationCompleted
-    // fires — the host bundle's JS needs to be loaded before __sekHostMount exists, so a
-    // "Loading…" placeholder covers that window instead of showing a blank WebView.
+    // Set true only once Bridge.MountSucceeded fires (the host bundle's
+    // window.__sekHostMount actually ran) — NavigationCompleted alone only means the
+    // WebView's document loaded, not that the editor mounted, so a "Loading…"
+    // placeholder covers the gap instead of ever showing a blank, unmounted WebView.
     [ObservableProperty]
     private bool _isLoaded;
 
@@ -41,6 +42,10 @@ public partial class CodeEditorViewModel : ViewModelBase
         _userId = userId;
         Bridge = new CodeBridge(apiClient);
         Bridge.ProjectChanged += () => _ = LoadProjectsAsync();
+        // IsLoaded now means "the editor actually mounted", not just "the WebView
+        // navigated" — a navigated-but-unmounted WebView is still a blank pane.
+        Bridge.MountSucceeded += () => IsLoaded = true;
+        Bridge.MountFailed += message => ErrorMessage = $"Failed to load the code editor: {message}";
         _ = LoadProjectsAsync();
     }
 

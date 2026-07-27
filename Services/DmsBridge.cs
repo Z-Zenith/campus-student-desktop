@@ -29,7 +29,12 @@ public sealed class DmsBridge(ApiClient apiClient)
         {
             return;
         }
-        await InvokeScript($"window.__dmsHostMount({JsonSerializer.Serialize(new MountMessage(user), JsonOptions)})");
+        // __dmsHostMount(json: string) does JSON.parse(json) — needs a JSON *string*
+        // argument, so the payload must be serialized twice: once to produce the JSON,
+        // once more to turn that JSON into a quoted/escaped JS string literal. See
+        // CodeBridge.MountAsync for the full rationale (same bug, same fix).
+        var mountJson = JsonSerializer.Serialize(new MountMessage(user), JsonOptions);
+        await InvokeScript($"window.__dmsHostMount({JsonSerializer.Serialize(mountJson)})");
     }
 
     public async Task HandleMessageAsync(string json)
@@ -61,7 +66,8 @@ public sealed class DmsBridge(ApiClient apiClient)
         {
             return;
         }
-        await InvokeScript($"window.__dmsHostReceive({JsonSerializer.Serialize(response, JsonOptions)})");
+        var responseJson = JsonSerializer.Serialize(response, JsonOptions);
+        await InvokeScript($"window.__dmsHostReceive({JsonSerializer.Serialize(responseJson)})");
     }
 
     private async Task<BridgeResponse> ListThreadsAsync(string requestId)

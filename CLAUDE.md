@@ -24,16 +24,18 @@ dotnet run
 dotnet test   # StudentDesktop.Tests
 ```
 
-## Cross-repo NativeWebView integrations (SDA-19, SDA-24)
+## Cross-repo NativeWebView integrations (SDA-19, SEK-01, SDA-24)
 
-Two features embed a React/TypeScript component from a sibling repo as a WebView-hosted
+Three features embed a React/TypeScript component from a sibling repo as a WebView-hosted
 bundle, not a .NET assembly. Each sibling is a **git submodule** under `external/`, pinned to
-that repo's `host-0.1.0` tag:
+its own `host-<version>` tag — `external/shared-editor-kit` and `external/direct-messaging`
+tag independently, so don't assume their versions match:
 
-- **SDA-19** (`SekHost/`): `external/shared-editor-kit` → `campus-shared-editor-kit`'s
-  `NotesEditor`.
+- **SDA-19** (`SekHost/`) and **SEK-01** (`CodeHost/`): both come from the same submodule,
+  `external/shared-editor-kit` → `campus-shared-editor-kit`'s `NotesEditor` and `CodeEditor`
+  respectively, currently pinned to `host-0.3.0`.
 - **SDA-24** (`DmsHost/`): `external/direct-messaging` → `campus-direct-messaging`'s
-  `MessageInbox`/`MessageThreadView`.
+  `MessageInbox`/`MessageThreadView`, currently pinned to `host-0.1.0`.
 
 Before `dotnet build`:
 
@@ -46,9 +48,9 @@ git submodule update --init
 This is a manual dev prerequisite, same as pre-split — not yet wired into a cross-toolchain CI
 step (tracked as a follow-up). Missing `dist/host` yields zero copied files, not a build error
 (Content globs don't fail on no matches), so `dotnet build` still succeeds without it, but
-`SekHost`/`DmsHost` will be empty. To bump either submodule to a newer `host-<version>` tag:
-`cd external/<name> && git fetch --tags && git checkout host-<version>`, then commit the
-updated submodule pointer in this repo.
+`SekHost`/`CodeHost`/`DmsHost` will be empty. To bump either submodule to a newer
+`host-<version>` tag: `cd external/<name> && git fetch --tags && git checkout host-<version>`,
+then commit the updated submodule pointer in this repo.
 
 ## Code conventions
 

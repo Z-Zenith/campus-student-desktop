@@ -49,13 +49,16 @@ public partial class CodeEditorView : UserControl
 
     // The host bundle's JS (and __sekHostMount) only exists once the page has actually
     // loaded — mounting before that would silently no-op, so this is the earliest safe
-    // point to mount, and it also clears the "Loading…" placeholder.
+    // point to mount. Does NOT clear the "Loading…" placeholder itself anymore — that
+    // only means the WebView's document loaded, not that the editor actually mounted
+    // (see CodeBridge's MountSucceeded/MountFailed events, wired to IsLoaded/ErrorMessage
+    // in CodeEditorViewModel's constructor) — a WebView that navigated but never mounted
+    // is still just a blank pane, which is exactly the bug this used to hide.
     private void OnNavigationCompleted(object? sender, WebViewNavigationCompletedEventArgs e)
     {
         _isNavigated = true;
         if (DataContext is CodeEditorViewModel vm)
         {
-            vm.IsLoaded = true;
             MountIfReady(vm);
         }
     }
