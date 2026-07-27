@@ -15,7 +15,12 @@
                        TextWrapping="Wrap" Foreground="Gray"/>
         </StackPanel>
 
-        <webview:NativeWebView x:Name="MessagesWebView"/>
+        <Grid>
+            <webview:NativeWebView x:Name="MessagesWebView"/>
+            <TextBlock Text="Loading…" IsVisible="{Binding !IsLoaded}"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       FontSize="16" Foreground="Gray"/>
+        </Grid>
     </DockPanel>
 
 </UserControl>

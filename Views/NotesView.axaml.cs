@@ -15,6 +15,13 @@ public partial class NotesView : UserControl
     {
         InitializeComponent();
         EditorWebView.WebMessageReceived += OnWebMessageReceived;
+        EditorWebView.NavigationCompleted += (_, _) =>
+        {
+            if (DataContext is NotesViewModel vm)
+            {
+                vm.IsLoaded = true;
+            }
+        };
         DataContextChanged += (_, _) => WireViewModel();
         EditorWebView.Navigate(new Uri(Path.Combine(AppContext.BaseDirectory, HostIndexRelativePath)));
     }

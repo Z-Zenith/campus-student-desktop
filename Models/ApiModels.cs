@@ -11,6 +11,37 @@ public record CalendarItemDto(string Kind, Guid Id, string Title, DateTime Start
 
 public record MyCalendarResponse(List<CalendarItemDto> Items);
 
+// SDA-14: personal to-do / custom-entry write operations.
+public record CreateTodoRequest(string Title, DateTime? DueDate);
+
+public record TodoDto(Guid Id, string Title, DateTime? DueDate, bool Completed);
+
+public record SetTodoCompleteRequest(bool Completed);
+
+public record CreateCustomCalendarEntryRequest(string Title, DateOnly EntryDate);
+
+public record CustomCalendarEntryDto(Guid Id, string Title, DateOnly EntryDate);
+
+// SEK-01: the Coding app's multi-file project — CodeBridge forwards SEK's CodeProject/
+// CodeFile shapes here as-is (see campus-shared-editor-kit's types.ts).
+public record CodeFileDto(string Path, string Language, string Content);
+
+public record RunCodeProjectRequest(string EntryFilePath, IReadOnlyList<CodeFileDto> Files, string? Stdin);
+
+public record CodeRunResultDto(string Stdout, string Stderr, int ExitCode, long DurationMs, bool TimedOut, string? Status);
+
+public record CreateCodeProjectRequest(
+    string Name, IReadOnlyList<CodeFileDto> Files, string EntryFilePath, string ActiveFilePath, string? Stdin, Guid? Id = null);
+
+public record UpdateCodeProjectRequest(
+    string Name, IReadOnlyList<CodeFileDto> Files, string EntryFilePath, string ActiveFilePath, string? Stdin);
+
+public record CodeProjectDto(
+    Guid Id, string Name, IReadOnlyList<CodeFileDto> Files, string EntryFilePath, string ActiveFilePath,
+    string? Stdin, DateTime CreatedAt, DateTime UpdatedAt);
+
+public record CodeProjectSummaryDto(Guid Id, string Name, DateTime UpdatedAt);
+
 public record EventDto(Guid Id, string Title, DateTime StartTime, DateTime EndTime, bool IsRegistered);
 
 public record ChangePasswordRequest(string CurrentPassword, string NewPassword, string TotpCode);
@@ -26,6 +57,11 @@ public record MyMarksResponse(List<InternalMarkDto> InternalMarks, List<External
 public record WhitelistSiteDto(Guid Id, string Url, DateTime ApprovedAt);
 
 public record WhitelistResponse(List<WhitelistSiteDto> Sites);
+
+// SDA-04
+public record CreateWhitelistRequestRequest(string Url);
+
+public record WhitelistRequestDto(Guid Id, string Url, Guid RequestedBy, string Status, Guid? ReviewedBy);
 
 // SDA-08, SEK-03
 // SDA-19: outgoing links as parsed by SEK's own extractOutgoingLinks, forwarded as-is.
@@ -59,6 +95,9 @@ public record SubmitAssignmentRequest(string ContentUrl, string SubmissionFormat
 
 public record SubmissionDto(Guid Id, Guid AssignmentId, Guid StudentId, string ContentUrl, DateTime SubmittedAt, bool IsLate, bool IsAutosubmitted);
 
+// SDA-10: one row per assignment for the Assignments tile grid — GET /api/v1/assignments/mine.
+public record AssignmentSummaryDto(Guid Id, string Title, string SubjectName, string Type, DateTime DueDate, DateTime? SubmittedAt, bool? IsLate);
+
 // SDA-16
 public record GroupDto(Guid Id, string Name, string Type, Guid? SectionId);
 
@@ -78,6 +117,17 @@ public record SendMessageRequest(string Content);
 public record DmsMessageDto(Guid Id, Guid ThreadId, Guid SenderId, string Content, DateTime SentAt, DateTime? ReadAt);
 
 public record DmsThreadSummaryDto(Guid Id, Guid StudentId, Guid TeacherId, DateTime CreatedAt, DmsMessageDto? LastMessage);
+
+// SEK-04
+public record ImageSearchRequestBody(string Query);
+
+public record ImageSearchResultDto(string Id, string Title, string SourceUrl, string ThumbnailUrl, int Width, int Height, string Attribution);
+
+public record ImageSearchResponseDto(string Query, List<ImageSearchResultDto> Results, bool Degraded);
+
+public record SaveImageRequestBody(string SourceUrl);
+
+public record SaveImageResponseDto(string Url);
 
 // SDA-25: no ClassSessionId here — the client only ever claims an AssignmentId it
 // already knows (from having opened that assignment); the backend resolves the active

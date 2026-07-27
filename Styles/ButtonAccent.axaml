@@ -1,0 +1,18 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- SDA UI polish: Views/*.axaml in this app only use plain, unclassed Button
+       elements (no Classes="accent"), so FluentTheme's stock accent styling never
+       shows up on them by default; only ToggleSwitch/Slider/CheckBox/focus visuals
+       react to SystemAccentColor out of the box. This adds a subtle accent-colored
+       border on hover/press to every Button via TemplateBinding-backed properties
+       (BorderBrush/BorderThickness), not a template override, so command wiring,
+       IsEnabled behavior, and focus/click handling are all untouched. -->
+  <Style Selector="Button:pointerover">
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColor}" />
+    <Setter Property="BorderThickness" Value="1.5" />
+  </Style>
+  <Style Selector="Button:pressed">
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemAccentColorDark1}" />
+    <Setter Property="BorderThickness" Value="1.5" />
+  </Style>
+</Styles>

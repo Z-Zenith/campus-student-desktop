@@ -1,15 +1,12 @@
 using System;
-using System.Net.Http;
-using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using StudentDesktop.Models;
-using StudentDesktop.Services;
 
 namespace StudentDesktop.ViewModels;
 
-// SDA-02: roll number/username + password + TOTP code.
-public partial class LoginViewModel(ApiClient apiClient, Action<LoginResponse> onLoggedIn) : ViewModelBase
+// SDA-02: roll number/username + password. TOTP is collected on its own page —
+// see TotpViewModel — once identifier/password are entered here.
+public partial class LoginViewModel(Action<string, string> onCredentialsEntered) : ViewModelBase
 {
     [ObservableProperty]
     private string _identifier = string.Empty;
@@ -18,35 +15,20 @@ public partial class LoginViewModel(ApiClient apiClient, Action<LoginResponse> o
     private string _password = string.Empty;
 
     [ObservableProperty]
-    private string _totpCode = string.Empty;
+    private bool _isPasswordVisible;
 
     [ObservableProperty]
     private string? _errorMessage;
 
-    [ObservableProperty]
-    private bool _isBusy;
-
     [RelayCommand]
-    private async Task LoginAsync()
+    private void Continue()
     {
-        IsBusy = true;
         ErrorMessage = null;
-        try
+        if (string.IsNullOrWhiteSpace(Identifier) || string.IsNullOrWhiteSpace(Password))
         {
-            var response = await apiClient.LoginAsync(Identifier, Password, TotpCode);
-            onLoggedIn(response);
+            ErrorMessage = "Enter your roll number/username and password.";
+            return;
         }
-        catch (ApiException ex)
-        {
-            ErrorMessage = ex.Message;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
-        {
-            ErrorMessage = "Could not reach the server. Check your connection and try again.";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
+        onCredentialsEntered(Identifier, Password);
     }
 }

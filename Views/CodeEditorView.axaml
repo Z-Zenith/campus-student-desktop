@@ -7,13 +7,13 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="650"
-             x:Class="StudentDesktop.Views.NotesView"
-             x:DataType="vm:NotesViewModel">
+             x:Class="StudentDesktop.Views.CodeEditorView"
+             x:DataType="vm:CodeEditorViewModel">
 
     <DockPanel>
         <StackPanel DockPanel.Dock="Top" Margin="16,12" Spacing="8">
-            <TextBlock Text="Notes" FontSize="20" FontWeight="Bold"/>
-            <TextBlock Text="SDA-19: powered by the Shared Editor Kit's note editor (SEK-03)."
+            <TextBlock Text="Coding" FontSize="20" FontWeight="Bold"/>
+            <TextBlock Text="Powered by the Shared Editor Kit's code editor (SEK-01). Write code across multiple files, then Run it — output, errors, and Problems appear in the editor pane."
                        TextWrapping="Wrap" Foreground="Gray"/>
             <TextBlock Text="{Binding ErrorMessage}" Foreground="IndianRed" TextWrapping="Wrap"
                        IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
@@ -21,12 +21,12 @@
 
         <Border DockPanel.Dock="Left" Width="240" BorderBrush="#DDDDDD" BorderThickness="0,0,1,0">
             <DockPanel>
-                <Button DockPanel.Dock="Top" Content="New note" Command="{Binding NewNoteCommand}"
+                <Button DockPanel.Dock="Top" Content="New project" Command="{Binding NewProjectCommand}"
                         Margin="8" HorizontalAlignment="Stretch"/>
-                <ListBox ItemsSource="{Binding Notes}" SelectedItem="{Binding SelectedNote}">
+                <ListBox ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject}">
                     <ListBox.ItemTemplate>
-                        <DataTemplate DataType="models:NoteSummaryDto">
-                            <TextBlock Text="{Binding Title}" TextWrapping="Wrap"/>
+                        <DataTemplate DataType="models:CodeProjectSummaryDto">
+                            <TextBlock Text="{Binding Name}" TextWrapping="Wrap"/>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>

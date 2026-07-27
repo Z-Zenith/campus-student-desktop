@@ -1,45 +1,86 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:StudentDesktop.ViewModels"
+             xmlns:models="using:StudentDesktop.Models"
              xmlns:avconv="using:Avalonia.Data.Converters"
+             xmlns:conv="using:StudentDesktop.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
              x:Class="StudentDesktop.Views.AssignmentsView"
              x:DataType="vm:AssignmentsViewModel">
 
     <ScrollViewer>
-        <StackPanel Margin="24" Spacing="12" MaxWidth="480">
-            <TextBlock Text="Submit an assignment" FontSize="20" FontWeight="Bold"/>
-            <TextBlock Text="SDA-10 — the format must match the assignment's type; late submissions are flagged, not silently accepted."
-                       TextWrapping="Wrap" Foreground="Gray"/>
+        <StackPanel Margin="24" Spacing="16">
+            <TextBlock Text="Assignments" FontSize="20" FontWeight="Bold"/>
 
-            <TextBlock Text="Assignment ID"/>
-            <TextBox Text="{Binding AssignmentId}" PlaceholderText="Assignment ID (GUID)"/>
+            <ProgressBar Classes="busy-spinner" IsVisible="{Binding IsBusy}"/>
 
-            <TextBlock Text="Submission format"/>
-            <ComboBox SelectedItem="{Binding SubmissionFormat}" HorizontalAlignment="Stretch">
-                <ComboBox.Items>
-                    <x:String>Code</x:String>
-                    <x:String>Quiz</x:String>
-                    <x:String>Essay</x:String>
-                    <x:String>FileUpload</x:String>
-                </ComboBox.Items>
-            </ComboBox>
+            <TextBlock Text="No assignments yet." Classes="empty-state"
+                       IsVisible="{Binding Assignments.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
 
-            <TextBlock Text="Content"/>
-            <TextBox Text="{Binding ContentUrl}" AcceptsReturn="True" TextWrapping="Wrap" Height="140"
-                      PlaceholderText="Code, quiz answers, essay text, or a file URL — depending on the format above."/>
+            <ItemsControl ItemsSource="{Binding Assignments}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" ItemSpacing="12" LineSpacing="12"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="models:AssignmentSummaryDto">
+                        <Button Classes="assignment-tile" Width="200" Height="120"
+                                Command="{Binding $parent[UserControl].((vm:AssignmentsViewModel)DataContext).SelectAssignmentCommand}"
+                                CommandParameter="{Binding}">
+                            <StackPanel Spacing="4" HorizontalAlignment="Left">
+                                <TextBlock Text="{Binding Title}" FontWeight="Bold" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding SubjectName}" Foreground="Gray"/>
+                                <TextBlock Text="{Binding DueDate, StringFormat='Due {0:MMM d}'}" Foreground="Gray"/>
+                                <Border Classes="banner-success" Padding="4,2" IsVisible="{Binding SubmittedAt, Converter={x:Static avconv:ObjectConverters.IsNotNull}}">
+                                    <TextBlock Text="Submitted" FontSize="11"/>
+                                </Border>
+                                <Border Classes="banner-warning" Padding="4,2" IsVisible="{Binding IsLate}">
+                                    <TextBlock Text="Late" FontSize="11"/>
+                                </Border>
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
-            <Button Content="Submit" Command="{Binding SubmitCommand}"/>
+            <Border BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,1,0,0" Margin="0,8,0,0"/>
 
-            <TextBlock Text="{Binding ErrorMessage}" Foreground="IndianRed" TextWrapping="Wrap"
-                       IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
+            <StackPanel Spacing="12" MaxWidth="480">
+                <TextBlock Text="Submit" FontSize="16" FontWeight="Bold"/>
 
-            <StackPanel IsVisible="{Binding LastSubmission, Converter={x:Static avconv:ObjectConverters.IsNotNull}}" Spacing="4">
-                <TextBlock Text="Submitted." Foreground="Green" FontWeight="Bold"/>
-                <TextBlock Text="{Binding LastSubmission.SubmittedAt, StringFormat='Submitted at {0}'}"/>
-                <TextBlock Text="Flagged as late." Foreground="OrangeRed" IsVisible="{Binding LastSubmission.IsLate}"/>
+                <TextBlock Text="Assignment ID"/>
+                <TextBox Text="{Binding AssignmentId}" PlaceholderText="Select an assignment tile above, or paste an ID"/>
+
+                <TextBlock Text="Submission format"/>
+                <ComboBox SelectedItem="{Binding SubmissionFormat}" HorizontalAlignment="Stretch">
+                    <ComboBox.Items>
+                        <x:String>Code</x:String>
+                        <x:String>Quiz</x:String>
+                        <x:String>Essay</x:String>
+                        <x:String>FileUpload</x:String>
+                    </ComboBox.Items>
+                </ComboBox>
+
+                <TextBlock Text="Content"/>
+                <TextBox Text="{Binding ContentUrl}" AcceptsReturn="True" TextWrapping="Wrap" Height="140"
+                          PlaceholderText="Code, quiz answers, essay text, or a file URL — depending on the format above."/>
+
+                <Button Content="Submit" Command="{Binding SubmitCommand}"/>
+
+                <Border Classes="banner-error" IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}">
+                    <TextBlock Text="{Binding ErrorMessage}"/>
+                </Border>
+
+                <Border Classes="banner-success" IsVisible="{Binding LastSubmission, Converter={x:Static avconv:ObjectConverters.IsNotNull}}">
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Submitted." FontWeight="Bold"/>
+                        <TextBlock Text="{Binding LastSubmission.SubmittedAt, StringFormat='Submitted at {0}'}"/>
+                        <TextBlock Text="Flagged as late." IsVisible="{Binding LastSubmission.IsLate}"/>
+                    </StackPanel>
+                </Border>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

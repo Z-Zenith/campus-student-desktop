@@ -16,6 +16,10 @@ public partial class MainWindowViewModel : ViewModelBase
     // calls BeginSession on it yet — see AssignmentAutoSubmitService for details.
     public AssignmentAutoSubmitService AutoSubmitService { get; }
 
+    // Applied immediately on construction (before any page is shown) and toggled from the
+    // shell's side rail once signed in — see ShellViewModel/ShellView.
+    public ThemeService ThemeService { get; } = new();
+
     [ObservableProperty]
     private ViewModelBase _currentPage;
 
@@ -25,8 +29,10 @@ public partial class MainWindowViewModel : ViewModelBase
         _currentPage = CreateLoginPage();
     }
 
-    private LoginViewModel CreateLoginPage() => new(_apiClient, response =>
+    private LoginViewModel CreateLoginPage() => new((identifier, password) =>
     {
-        CurrentPage = new ShellViewModel(_apiClient, response.UserId, response.FullName, () => CurrentPage = CreateLoginPage(), AutoSubmitService);
+        CurrentPage = new TotpViewModel(_apiClient, identifier, password,
+            response => CurrentPage = new ShellViewModel(_apiClient, response.UserId, response.FullName, () => CurrentPage = CreateLoginPage(), AutoSubmitService, ThemeService),
+            () => CurrentPage = CreateLoginPage());
     });
 }

@@ -14,7 +14,9 @@ namespace StudentDesktop.ViewModels;
 // single calendar. Class sessions (from the student's timetable) are overlaid on the same
 // week grid as events, Google-Calendar-style, per the desktop app's design direction — the
 // other three kinds are distinguished as separate labeled lists below the grid so all four
-// stay visually distinguishable even though only two are time-slot-shaped.
+// stay visually distinguishable even though only two are time-slot-shaped. To-dos and
+// custom entries are student-owned and fully interactive (add/complete/delete); college
+// events and class sessions are read-only here (they're created/managed elsewhere).
 public partial class CalendarViewModel : ViewModelBase
 {
     private static readonly int FirstHour = 7;
@@ -24,8 +26,8 @@ public partial class CalendarViewModel : ViewModelBase
     private readonly ApiClient _apiClient;
 
     public ObservableCollection<CalendarCellViewModel> GridCells { get; } = [];
-    public ObservableCollection<CalendarListItemViewModel> Todos { get; } = [];
-    public ObservableCollection<CalendarListItemViewModel> CustomEntries { get; } = [];
+    public ObservableCollection<TodoItemViewModel> Todos { get; } = [];
+    public ObservableCollection<CustomEntryItemViewModel> CustomEntries { get; } = [];
     public ObservableCollection<CalendarListItemViewModel> OtherEvents { get; } = [];
     public ObservableCollection<CalendarListItemViewModel> OtherClasses { get; } = [];
 
@@ -34,6 +36,14 @@ public partial class CalendarViewModel : ViewModelBase
 
     [ObservableProperty]
     private string? _errorMessage;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AddTodoCommand))]
+    private string _newTodoTitle = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AddCustomEntryCommand))]
+    private string _newCustomEntryTitle = "";
 
     public CalendarViewModel(ApiClient apiClient)
     {
@@ -59,6 +69,81 @@ public partial class CalendarViewModel : ViewModelBase
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    private bool CanAddTodo() => !string.IsNullOrWhiteSpace(NewTodoTitle);
+
+    [RelayCommand(CanExecute = nameof(CanAddTodo))]
+    private async Task AddTodoAsync()
+    {
+        ErrorMessage = null;
+        try
+        {
+            await _apiClient.CreateTodoAsync(NewTodoTitle.Trim(), dueDate: null);
+            NewTodoTitle = "";
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task OnToggleTodoCompleteAsync(TodoItemViewModel todo, bool completed)
+    {
+        try
+        {
+            await _apiClient.SetTodoCompleteAsync(todo.Id, completed);
+        }
+        catch (ApiException ex)
+        {
+            ErrorMessage = ex.Message;
+            todo.SetCompletedWithoutNotifying(!completed);
+        }
+    }
+
+    private async Task OnDeleteTodoAsync(TodoItemViewModel todo)
+    {
+        try
+        {
+            await _apiClient.DeleteTodoAsync(todo.Id);
+            Todos.Remove(todo);
+        }
+        catch (ApiException ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private bool CanAddCustomEntry() => !string.IsNullOrWhiteSpace(NewCustomEntryTitle);
+
+    [RelayCommand(CanExecute = nameof(CanAddCustomEntry))]
+    private async Task AddCustomEntryAsync()
+    {
+        ErrorMessage = null;
+        try
+        {
+            await _apiClient.CreateCustomCalendarEntryAsync(NewCustomEntryTitle.Trim(), DateOnly.FromDateTime(DateTime.Today));
+            NewCustomEntryTitle = "";
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task OnDeleteCustomEntryAsync(CustomEntryItemViewModel entry)
+    {
+        try
+        {
+            await _apiClient.DeleteCustomCalendarEntryAsync(entry.Id);
+            CustomEntries.Remove(entry);
+        }
+        catch (ApiException ex)
+        {
+            ErrorMessage = ex.Message;
         }
     }
 
@@ -97,11 +182,12 @@ public partial class CalendarViewModel : ViewModelBase
             switch (item.Kind)
             {
                 case "todo":
-                    Todos.Add(new CalendarListItemViewModel(item.Title, item.Start,
-                        item.Extra == "completed=true" ? "Completed" : "Due"));
+                    Todos.Add(new TodoItemViewModel(item.Id, item.Title, item.Start,
+                        item.Extra == "completed=true", OnToggleTodoCompleteAsync, OnDeleteTodoAsync));
                     break;
                 case "custom_entry":
-                    CustomEntries.Add(new CalendarListItemViewModel(item.Title, item.Start));
+                    CustomEntries.Add(new CustomEntryItemViewModel(item.Id, item.Title,
+                        DateOnly.FromDateTime(item.Start), OnDeleteCustomEntryAsync));
                     break;
                 case "college_event":
                     var registered = item.Extra == "registered=true";

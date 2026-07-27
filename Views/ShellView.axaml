@@ -1,31 +1,113 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:StudentDesktop.ViewModels"
+             xmlns:conv="using:StudentDesktop.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="650"
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="650"
              x:Class="StudentDesktop.Views.ShellView"
              x:DataType="vm:ShellViewModel">
 
+    <UserControl.Styles>
+        <Style Selector="Button.rail-item">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Left"/>
+            <Setter Property="Margin" Value="4,2"/>
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="Button.rail-item.selected">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentSoftBrush}"/>
+        </Style>
+        <Style Selector="Button.tab-header">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="12,8"/>
+            <Setter Property="CornerRadius" Value="0"/>
+        </Style>
+        <Style Selector="Button.tab-header.selected">
+            <Setter Property="Background" Value="{DynamicResource SystemAccentSoftBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
     <DockPanel>
-        <Border DockPanel.Dock="Top" BorderBrush="#DDDDDD" BorderThickness="0,0,0,1" Padding="16,10">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto">
-                <Button Grid.Column="0" Content="Calendar" Command="{Binding ShowCalendarCommand}" Margin="0,0,8,0"/>
-                <Button Grid.Column="1" Content="Events" Command="{Binding ShowEventsCommand}" Margin="0,0,8,0"/>
-                <Button Grid.Column="2" Content="Marks" Command="{Binding ShowMarksCommand}" Margin="0,0,8,0"/>
-                <Button Grid.Column="3" Content="Assignments" Command="{Binding ShowAssignmentsCommand}" Margin="0,0,8,0"/>
-                <Button Grid.Column="4" Content="Community" Command="{Binding ShowCommunityCommand}" Margin="0,0,8,0"/>
-                <Button Grid.Column="5" Content="Browser" Command="{Binding ShowBrowserCommand}" Margin="0,0,8,0"/>
-                <Button Grid.Column="6" Content="Notes" Command="{Binding ShowNotesCommand}" Margin="0,0,8,0"/>
-                <Button Grid.Column="7" Content="Messages" Command="{Binding ShowMessagesCommand}" Margin="0,0,8,0"/>
-                <Button Grid.Column="8" Content="Teacher Feedback" Command="{Binding ShowTeacherFeedbackCommand}" Margin="0,0,8,0"/>
-                <Button Grid.Column="9" Content="Course Info" Command="{Binding ShowCourseInfoCommand}" Margin="0,0,8,0"/>
-                <Button Grid.Column="10" Content="Change Password" Command="{Binding ShowChangePasswordCommand}"/>
-                <TextBlock Grid.Column="12" Text="{Binding FullName}" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                <Button Grid.Column="13" Content="Sign out" Command="{Binding SignOutCommand}"/>
-            </Grid>
+        <!-- Left icon rail: collapsible between icon-only and icon+label, Office-365-style app launcher -->
+        <Border DockPanel.Dock="Left"
+                Width="{Binding IsRailExpanded, Converter={x:Static conv:BoolToRailWidthConverter.Instance}}"
+                Background="{DynamicResource SystemRailBrush}"
+                BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <ToggleButton DockPanel.Dock="Top" Content="☰" IsChecked="{Binding IsRailExpanded}"
+                              HorizontalAlignment="Stretch" Margin="4" ToolTip.Tip="Expand/collapse menu"/>
+
+                <StackPanel DockPanel.Dock="Bottom" Margin="4" Spacing="4">
+                    <TextBlock Text="{Binding FullName}" IsVisible="{Binding IsRailExpanded}" Margin="8,4" TextWrapping="Wrap"/>
+                    <ToggleButton Classes="rail-item" IsChecked="{Binding ThemeService.IsDarkMode}" ToolTip.Tip="Toggle dark mode">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="🌓" FontSize="16"/>
+                            <TextBlock Text="Theme" IsVisible="{Binding IsRailExpanded}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </ToggleButton>
+                    <Button Classes="rail-item" Command="{Binding SignOutCommand}" ToolTip.Tip="Sign out">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="🚪" FontSize="16"/>
+                            <TextBlock Text="Sign out" IsVisible="{Binding IsRailExpanded}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+
+                <ScrollViewer>
+                    <ItemsControl ItemsSource="{Binding AppCatalog}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:AppCatalogEntry">
+                                <Button Classes="rail-item"
+                                        Command="{Binding $parent[UserControl].((vm:ShellViewModel)DataContext).OpenAppCommand}"
+                                        CommandParameter="{Binding}"
+                                        ToolTip.Tip="{Binding Title}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="{Binding Icon}" FontSize="16"/>
+                                        <TextBlock Text="{Binding Title}"
+                                                   IsVisible="{Binding $parent[UserControl].((vm:ShellViewModel)DataContext).IsRailExpanded}"
+                                                   VerticalAlignment="Center" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
-        <ContentControl Content="{Binding CurrentPage}"/>
+
+        <!-- Tab strip + content -->
+        <DockPanel>
+            <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,0,0,1">
+                <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding OpenTabs}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:AppTabViewModel">
+                                <StackPanel Orientation="Horizontal" Classes.selected="{Binding IsSelected}">
+                                    <Button Classes="tab-header" Classes.selected="{Binding IsSelected}"
+                                            Command="{Binding $parent[UserControl].((vm:ShellViewModel)DataContext).SelectTabCommand}"
+                                            CommandParameter="{Binding}">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{Binding Icon}"/>
+                                            <TextBlock Text="{Binding Title}"/>
+                                        </StackPanel>
+                                    </Button>
+                                    <Button Content="✕" IsVisible="{Binding IsClosable}" Command="{Binding CloseCommand}"
+                                            Padding="6,8" Background="Transparent" ToolTip.Tip="Close"/>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Border>
+
+            <ContentControl Content="{Binding SelectedTab.Content}"/>
+        </DockPanel>
     </DockPanel>
 
 </UserControl>
