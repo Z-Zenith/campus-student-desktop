@@ -79,6 +79,24 @@ public class ApiClient
             ?? throw new ApiException(500, "Empty code-run response");
     }
 
+    // SEK-01: the Coding app's integrated terminal.
+    public async Task<Guid> StartTerminalAsync(IReadOnlyList<CodeFileDto> files)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/terminal/start", new TerminalStartRequest(files));
+        var result = await response.Content.ReadFromJsonAsync<TerminalStartResponse>(JsonOptions)
+            ?? throw new ApiException(500, "Empty terminal-start response");
+        return result.SessionId;
+    }
+
+    public async Task<TerminalExecResultDto> ExecTerminalCommandAsync(Guid sessionId, string command)
+    {
+        var response = await SendAsync(HttpMethod.Post, $"/api/v1/terminal/{sessionId}/exec", new TerminalExecRequest(command));
+        return await response.Content.ReadFromJsonAsync<TerminalExecResultDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty terminal-exec response");
+    }
+
+    public Task CloseTerminalAsync(Guid sessionId) => SendAsync(HttpMethod.Post, $"/api/v1/terminal/{sessionId}/close");
+
     // SEK-01: the Coding app's project sidebar/persistence, mirroring the Notes CRUD
     // pattern (GetMyNotesAsync/GetNoteAsync/CreateNoteAsync/UpdateNoteAsync) exactly.
     public async Task<List<CodeProjectSummaryDto>> GetMyCodeProjectsAsync()

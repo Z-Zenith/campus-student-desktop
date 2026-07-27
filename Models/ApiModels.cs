@@ -40,6 +40,17 @@ public record CodeProjectDto(
     Guid Id, string Name, IReadOnlyList<CodeFileDto> Files, string EntryFilePath, string ActiveFilePath,
     string? Stdin, DateTime CreatedAt, DateTime UpdatedAt);
 
+// SEK-01: the Coding app's integrated terminal — request/response exec against a
+// persistent, workspace-mounted sandbox container (see campus-backend's
+// TerminalSessionService doc comment for scope).
+public record TerminalStartRequest(IReadOnlyList<CodeFileDto> Files);
+
+public record TerminalStartResponse(Guid SessionId);
+
+public record TerminalExecRequest(string Command);
+
+public record TerminalExecResultDto(string Stdout, string Stderr, int ExitCode);
+
 public record CodeProjectSummaryDto(Guid Id, string Name, DateTime UpdatedAt);
 
 public record EventDto(Guid Id, string Title, DateTime StartTime, DateTime EndTime, bool IsRegistered);

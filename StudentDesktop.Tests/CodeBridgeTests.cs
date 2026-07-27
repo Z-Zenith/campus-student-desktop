@@ -100,6 +100,75 @@ public class CodeBridgeTests
     }
 
     [Fact]
+    public async Task Sek01_HandleMessage_TerminalStart_WithNoReachableServer_RespondsWithNetworkError()
+    {
+        var (bridge, lastScript) = NewBridge();
+        var payload = JsonSerializer.Serialize(new
+        {
+            requestId = "term-start-1",
+            method = "terminalStart",
+            payload = new
+            {
+                files = new[] { new { path = "main.py", language = "python", content = "print(1)" } },
+            },
+        });
+
+        await bridge.HandleMessageAsync(payload);
+
+        var script = lastScript();
+        Assert.NotNull(script);
+        var response = ExtractPayload(script, "__sekHostReceive");
+        Assert.Contains("term-start-1", response);
+        Assert.Contains("\"ok\":false", response);
+        Assert.Contains("network_error", response);
+    }
+
+    [Fact]
+    public async Task Sek01_HandleMessage_TerminalExec_WithNoReachableServer_RespondsWithNetworkError()
+    {
+        var (bridge, lastScript) = NewBridge();
+        var payload = JsonSerializer.Serialize(new
+        {
+            requestId = "term-exec-1",
+            method = "terminalExec",
+            payload = new { sessionId = Guid.NewGuid(), command = "ls" },
+        });
+
+        await bridge.HandleMessageAsync(payload);
+
+        var script = lastScript();
+        Assert.NotNull(script);
+        var response = ExtractPayload(script, "__sekHostReceive");
+        Assert.Contains("term-exec-1", response);
+        Assert.Contains("\"ok\":false", response);
+        Assert.Contains("network_error", response);
+    }
+
+    // Distinct from the run/save no-server tests: 'close' is fire-and-forget cleanup
+    // (called from TerminalPanel's unmount/restart, not user-awaited), so it must
+    // respond ok even when the server is unreachable rather than surfacing an error
+    // nobody's listening for.
+    [Fact]
+    public async Task Sek01_HandleMessage_TerminalClose_WithNoReachableServer_StillRespondsOk()
+    {
+        var (bridge, lastScript) = NewBridge();
+        var payload = JsonSerializer.Serialize(new
+        {
+            requestId = "term-close-1",
+            method = "terminalClose",
+            payload = new { sessionId = Guid.NewGuid() },
+        });
+
+        await bridge.HandleMessageAsync(payload);
+
+        var script = lastScript();
+        Assert.NotNull(script);
+        var response = ExtractPayload(script, "__sekHostReceive");
+        Assert.Contains("term-close-1", response);
+        Assert.Contains("\"ok\":true", response);
+    }
+
+    [Fact]
     public async Task Sek01_HandleMessage_UnknownMethod_RespondsWithValidationError()
     {
         var (bridge, lastScript) = NewBridge();

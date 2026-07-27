@@ -83,6 +83,9 @@ public sealed class CodeBridge(ApiClient apiClient)
             {
                 "run" => await RunAsync(request.RequestId, request.Payload),
                 "save" => await SaveAsync(request.RequestId, request.Payload),
+                "terminalStart" => await TerminalStartAsync(request.RequestId, request.Payload),
+                "terminalExec" => await TerminalExecAsync(request.RequestId, request.Payload),
+                "terminalClose" => await TerminalCloseAsync(request.RequestId, request.Payload),
                 _ => new BridgeResponse(request.RequestId, false, null,
                     new SekErrorDto("validation_error", $"Unknown code bridge method '{request.Method}'.")),
             };
@@ -133,6 +136,54 @@ public sealed class CodeBridge(ApiClient apiClient)
         return new BridgeResponse(requestId, true, ToSekProject(saved), null);
     }
 
+    private async Task<BridgeResponse> TerminalStartAsync(string requestId, JsonElement payload)
+    {
+        var start = payload.Deserialize<TerminalStartPayload>(JsonOptions)
+            ?? throw new InvalidOperationException("Malformed 'terminalStart' payload.");
+
+        var sessionId = await apiClient.StartTerminalAsync(ToApiFiles(start.Files));
+        return new BridgeResponse(requestId, true, new SekTerminalStartResultDto(sessionId), null);
+    }
+
+    private async Task<BridgeResponse> TerminalExecAsync(string requestId, JsonElement payload)
+    {
+        var exec = payload.Deserialize<TerminalExecPayload>(JsonOptions)
+            ?? throw new InvalidOperationException("Malformed 'terminalExec' payload.");
+
+        try
+        {
+            var result = await apiClient.ExecTerminalCommandAsync(exec.SessionId, exec.Command);
+            return new BridgeResponse(requestId, true, ToSekTerminalResult(result), null);
+        }
+        catch (ApiException ex) when (ex.StatusCode == 404)
+        {
+            // A generic "Project not found" (MapError's usual 404 mapping, written for
+            // run/save) would be misleading here — the session, not a project, is what
+            // expired (the reaper closed it, or it never existed).
+            return new BridgeResponse(requestId, false, null,
+                new SekErrorDto("network_error", "This terminal session has expired. Click Restart to start a new one."));
+        }
+    }
+
+    private async Task<BridgeResponse> TerminalCloseAsync(string requestId, JsonElement payload)
+    {
+        var close = payload.Deserialize<TerminalClosePayload>(JsonOptions)
+            ?? throw new InvalidOperationException("Malformed 'terminalClose' payload.");
+
+        // Best-effort: TerminalPanel calls this from an unmount/restart cleanup path with
+        // nothing awaiting a meaningful result, so neither an already-expired/reaped
+        // session (404) nor a transient network failure is worth surfacing as an error —
+        // unlike 'run'/'save'/'terminalExec', which the student is actively waiting on.
+        try
+        {
+            await apiClient.CloseTerminalAsync(close.SessionId);
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+        }
+        return new BridgeResponse(requestId, true, null, null);
+    }
+
     private static List<CodeFileDto> ToApiFiles(IReadOnlyList<SekCodeFileDto> files) =>
         files.Select(f => new CodeFileDto(f.Path, f.Language, f.Content)).ToList();
 
@@ -140,6 +191,9 @@ public sealed class CodeBridge(ApiClient apiClient)
 
     private static SekCodeRunResultDto ToSekResult(CodeRunResultDto r) =>
         new(r.Stdout, r.Stderr, r.ExitCode, r.DurationMs, r.TimedOut, r.Status);
+
+    private static SekTerminalExecResultDto ToSekTerminalResult(TerminalExecResultDto r) =>
+        new(r.Stdout, r.Stderr, r.ExitCode);
 
     // All projects flowing through this bridge belong to the signed-in student (the
     // backend enforces that) — SEK's CodeProject.id is optional/absent for a new project,
@@ -173,4 +227,9 @@ public sealed class CodeBridge(ApiClient apiClient)
     private sealed record SekCodeProjectRequiredIdDto(
         Guid Id, string Name, IReadOnlyList<SekCodeFileDto> Files, string EntryFilePath, string ActiveFilePath, string? Stdin);
     private sealed record SekCodeRunResultDto(string Stdout, string Stderr, int ExitCode, long DurationMs, bool TimedOut, string? Status);
+    private sealed record TerminalStartPayload(IReadOnlyList<SekCodeFileDto> Files);
+    private sealed record TerminalExecPayload(Guid SessionId, string Command);
+    private sealed record TerminalClosePayload(Guid SessionId);
+    private sealed record SekTerminalStartResultDto(Guid SessionId);
+    private sealed record SekTerminalExecResultDto(string Stdout, string Stderr, int ExitCode);
 }
