@@ -44,8 +44,12 @@ public partial class BrowserTabViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isLoading;
 
-    // Doubles as the tab strip's label ("New Tab" until the first navigation completes).
+    // Doubles as the tab strip's label ("New Tab" until the first navigation completes) —
+    // NotifyPropertyChangedFor is required here since DisplayTitle is a hand-written
+    // computed property, not its own [ObservableProperty]; without it, the tab strip's
+    // binding to DisplayTitle never refreshes when PageTitle changes.
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(DisplayTitle))]
     private string? _pageTitle;
 
     [ObservableProperty]
