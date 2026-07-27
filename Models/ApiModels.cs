@@ -22,10 +22,25 @@ public record CreateCustomCalendarEntryRequest(string Title, DateOnly EntryDate)
 
 public record CustomCalendarEntryDto(Guid Id, string Title, DateOnly EntryDate);
 
-// SEK-01: the Coding app's run request/result — CodeBridge forwards SEK's CodeSource here.
-public record RunCodeRequest(string Language, string Content, string? Stdin, string? Filename);
+// SEK-01: the Coding app's multi-file project — CodeBridge forwards SEK's CodeProject/
+// CodeFile shapes here as-is (see campus-shared-editor-kit's types.ts).
+public record CodeFileDto(string Path, string Language, string Content);
 
-public record CodeRunResultDto(string Stdout, string Stderr, int ExitCode, long DurationMs, bool TimedOut);
+public record RunCodeProjectRequest(string EntryFilePath, IReadOnlyList<CodeFileDto> Files, string? Stdin);
+
+public record CodeRunResultDto(string Stdout, string Stderr, int ExitCode, long DurationMs, bool TimedOut, string? Status);
+
+public record CreateCodeProjectRequest(
+    string Name, IReadOnlyList<CodeFileDto> Files, string EntryFilePath, string ActiveFilePath, string? Stdin, Guid? Id = null);
+
+public record UpdateCodeProjectRequest(
+    string Name, IReadOnlyList<CodeFileDto> Files, string EntryFilePath, string ActiveFilePath, string? Stdin);
+
+public record CodeProjectDto(
+    Guid Id, string Name, IReadOnlyList<CodeFileDto> Files, string EntryFilePath, string ActiveFilePath,
+    string? Stdin, DateTime CreatedAt, DateTime UpdatedAt);
+
+public record CodeProjectSummaryDto(Guid Id, string Name, DateTime UpdatedAt);
 
 public record EventDto(Guid Id, string Title, DateTime StartTime, DateTime EndTime, bool IsRegistered);
 

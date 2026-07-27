@@ -72,12 +72,47 @@ public class ApiClient
     public Task DeleteCustomCalendarEntryAsync(Guid entryId) => SendAsync(HttpMethod.Delete, $"/api/v1/calendar/custom-entries/{entryId}");
 
     // SEK-01: the Coding app's "Run" action.
-    public async Task<CodeRunResultDto> RunCodeAsync(string language, string content, string? stdin)
+    public async Task<CodeRunResultDto> RunCodeAsync(string entryFilePath, IReadOnlyList<CodeFileDto> files, string? stdin)
     {
-        var response = await SendAsync(HttpMethod.Post, "/api/v1/code/run", new RunCodeRequest(language, content, stdin, null));
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/code/run", new RunCodeProjectRequest(entryFilePath, files, stdin));
         return await response.Content.ReadFromJsonAsync<CodeRunResultDto>(JsonOptions)
             ?? throw new ApiException(500, "Empty code-run response");
     }
+
+    // SEK-01: the Coding app's project sidebar/persistence, mirroring the Notes CRUD
+    // pattern (GetMyNotesAsync/GetNoteAsync/CreateNoteAsync/UpdateNoteAsync) exactly.
+    public async Task<List<CodeProjectSummaryDto>> GetMyCodeProjectsAsync()
+    {
+        var response = await SendAsync(HttpMethod.Get, "/api/v1/code/projects/mine");
+        return await response.Content.ReadFromJsonAsync<List<CodeProjectSummaryDto>>(JsonOptions) ?? [];
+    }
+
+    public async Task<CodeProjectDto> GetCodeProjectAsync(Guid projectId)
+    {
+        var response = await SendAsync(HttpMethod.Get, $"/api/v1/code/projects/{projectId}");
+        return await response.Content.ReadFromJsonAsync<CodeProjectDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty code project response");
+    }
+
+    public async Task<CodeProjectDto> CreateCodeProjectAsync(
+        string name, IReadOnlyList<CodeFileDto> files, string entryFilePath, string activeFilePath, string? stdin, Guid? id = null)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/code/projects",
+            new CreateCodeProjectRequest(name, files, entryFilePath, activeFilePath, stdin, id));
+        return await response.Content.ReadFromJsonAsync<CodeProjectDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty code project response");
+    }
+
+    public async Task<CodeProjectDto> UpdateCodeProjectAsync(
+        Guid projectId, string name, IReadOnlyList<CodeFileDto> files, string entryFilePath, string activeFilePath, string? stdin)
+    {
+        var response = await SendAsync(HttpMethod.Patch, $"/api/v1/code/projects/{projectId}",
+            new UpdateCodeProjectRequest(name, files, entryFilePath, activeFilePath, stdin));
+        return await response.Content.ReadFromJsonAsync<CodeProjectDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty code project response");
+    }
+
+    public Task DeleteCodeProjectAsync(Guid projectId) => SendAsync(HttpMethod.Delete, $"/api/v1/code/projects/{projectId}");
 
     public async Task<List<EventDto>> ListEventsAsync()
     {
