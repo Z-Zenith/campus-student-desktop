@@ -42,7 +42,7 @@
   <!-- SDA-19: SEK-03's NotesEditor is React/TypeScript; embedding it means loading a
        standalone bundle in a NativeWebView, not referencing a .NET assembly. Since the
        repo split, campus-shared-editor-kit is a git submodule (external/shared-editor-kit)
-       pinned to the host-0.3.0 tag. Initialize the submodule, then run
+       pinned to the host-0.4.0 tag. Initialize the submodule, then run
        `npm run build:host` inside it before dotnet build. Not yet wired into a
        cross-toolchain CI/build step (tracked as a follow-up, same as pre-split), so this
        is a manual dev prerequisite for now. Missing dist/host just yields zero copied
