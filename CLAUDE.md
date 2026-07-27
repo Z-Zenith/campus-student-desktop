@@ -21,8 +21,17 @@ CommunityToolkit.Mvvm. Whitelisted in-app browser and embedded editor surfaces u
 ```bash
 dotnet build
 dotnet run
-dotnet test   # StudentDesktop.Tests
+dotnet test   # runs StudentDesktop.Tests via StudentDesktop.sln
 ```
+
+`StudentDesktop.sln` at repo root lists only `StudentDesktop.Tests` (not the main app
+project), specifically so bare `dotnet test` from repo root can't silently resolve to
+`StudentDesktop.csproj` instead — a non-test project "succeeds" a `dotnet test` run with
+zero tests executed and exit code 0, with no warning that nothing ran. If `dotnet test`
+ever reports 0 tests, something is wrong (e.g. the .sln was deleted or a new project file
+was added to root) — it should always report `50` tests passed. `dotnet build`/`dotnet run`
+still build/run the main app fine: the test project's `ProjectReference` to
+`StudentDesktop.csproj` pulls it into the build graph regardless of solution membership.
 
 ## Cross-repo NativeWebView integrations (SDA-19, SDA-24)
 
