@@ -48,12 +48,33 @@
         </Style>
     </UserControl.Styles>
 
+    <UserControl.Resources>
+        <!-- Chrome-style vector glyphs (Material Design icon geometry) instead of text/emoji
+             so the toolbar reads as real icon buttons, not glyph placeholders. -->
+        <StreamGeometry x:Key="IconChevronLeft">M15.41,7.41L14,6L8,12L14,18L15.41,16.59L10.83,12L15.41,7.41Z</StreamGeometry>
+        <StreamGeometry x:Key="IconChevronRight">M8.59,16.59L10,18L16,12L10,6L8.59,7.41L13.17,12L8.59,16.59Z</StreamGeometry>
+        <StreamGeometry x:Key="IconRefresh">M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z</StreamGeometry>
+        <StreamGeometry x:Key="IconPlus">M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z</StreamGeometry>
+        <StreamGeometry x:Key="IconLock">M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z</StreamGeometry>
+        <StreamGeometry x:Key="IconWarning">M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16</StreamGeometry>
+        <StreamGeometry x:Key="IconShield">M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7A2,2 0 0,1 14,9C14,10.11 13.1,11 12,11A2,2 0 0,1 10,9A2,2 0 0,1 12,7M17,16C17,14.13 14.79,13 12,13C9.21,13 7,14.13 7,16V17H17V16Z</StreamGeometry>
+    </UserControl.Resources>
+
     <DockPanel>
-        <!-- Chrome-style tab strip: one entry per open BrowserTabViewModel. -->
-        <Border DockPanel.Dock="Top" BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,0,0,1">
+        <!-- Chrome-style tab strip: one entry per open BrowserTabViewModel. Background
+             distinguishes it from the white toolbar/content below, like Chrome's own
+             tab-bar-vs-page-area split. -->
+        <Border DockPanel.Dock="Top" Background="{DynamicResource SystemRailBrush}"
+                BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,0,0,1">
             <DockPanel>
-                <Button DockPanel.Dock="Right" Content="+" Command="{Binding NewTabCommand}"
-                        Margin="4" Padding="10,4" ToolTip.Tip="New tab"/>
+                <Button DockPanel.Dock="Right" Classes="browser-nav-button" Command="{Binding OpenAllowedSitesPanelCommand}"
+                        Margin="4" ToolTip.Tip="Allowed sites">
+                    <Path Data="{StaticResource IconShield}" Fill="{DynamicResource SystemMutedTextBrush}" Width="14" Height="14" Stretch="Uniform"/>
+                </Button>
+                <Button DockPanel.Dock="Right" Classes="browser-nav-button" Command="{Binding NewTabCommand}"
+                        Margin="4" ToolTip.Tip="New tab">
+                    <Path Data="{StaticResource IconPlus}" Fill="{DynamicResource SystemMutedTextBrush}" Width="14" Height="14" Stretch="Uniform"/>
+                </Button>
                 <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                     <ItemsControl ItemsSource="{Binding Tabs}">
                         <ItemsControl.ItemsPanel>
@@ -89,13 +110,39 @@
 
             <StackPanel Margin="12,10" Spacing="6" DataContext="{Binding SelectedTab}" x:DataType="vm:BrowserTabViewModel">
                 <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
-                    <Button Grid.Column="0" Classes="browser-nav-button" Content="←" Command="{Binding GoBackCommand}" ToolTip.Tip="Back"/>
-                    <Button Grid.Column="1" Classes="browser-nav-button" Content="→" Command="{Binding GoForwardCommand}" Margin="4,0,0,0" ToolTip.Tip="Forward"/>
-                    <Button Grid.Column="2" Classes="browser-nav-button" Content="⟳" Command="{Binding ReloadCommand}" Margin="4,0,0,0" ToolTip.Tip="Reload"/>
-                    <TextBox Grid.Column="3" Classes="browser-address-bar" Margin="8,0,0,0" Text="{Binding UrlInput}"
-                             PlaceholderText="https://example.com — only whitelisted sites can be opened"
-                             ToolTip.Tip="{Binding PageTitle}"/>
-                    <Button Grid.Column="4" Content="Go" Command="{Binding NavigateCommand}" Margin="8,0,0,0"/>
+                    <Button Grid.Column="0" Classes="browser-nav-button" Command="{Binding GoBackCommand}" ToolTip.Tip="Back">
+                        <Path Data="{StaticResource IconChevronLeft}" Fill="{DynamicResource SystemMutedTextBrush}" Width="14" Height="14" Stretch="Uniform"/>
+                    </Button>
+                    <Button Grid.Column="1" Classes="browser-nav-button" Command="{Binding GoForwardCommand}" Margin="4,0,0,0" ToolTip.Tip="Forward">
+                        <Path Data="{StaticResource IconChevronRight}" Fill="{DynamicResource SystemMutedTextBrush}" Width="14" Height="14" Stretch="Uniform"/>
+                    </Button>
+                    <Button Grid.Column="2" Classes="browser-nav-button" Command="{Binding ReloadCommand}" Margin="4,0,0,0" ToolTip.Tip="Reload">
+                        <Path Data="{StaticResource IconRefresh}" Fill="{DynamicResource SystemMutedTextBrush}" Width="14" Height="14" Stretch="Uniform"/>
+                    </Button>
+                    <Grid Grid.Column="3" Margin="8,0,0,0">
+                        <TextBox Classes="browser-address-bar" Padding="34,6,14,6" Text="{Binding UrlInput}"
+                                 PlaceholderText="https://example.com — only whitelisted sites can be opened"
+                                 ToolTip.Tip="{Binding PageTitle}">
+                            <TextBox.KeyBindings>
+                                <KeyBinding Gesture="Enter" Command="{Binding NavigateCommand}"/>
+                            </TextBox.KeyBindings>
+                        </TextBox>
+                        <Path Data="{StaticResource IconLock}" Fill="{DynamicResource SystemSuccessBrush}"
+                              Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Left" Margin="12,0,0,0" IsHitTestVisible="False">
+                            <Path.IsVisible>
+                                <MultiBinding Converter="{x:Static BoolConverters.And}">
+                                    <Binding Path="CurrentSource" Converter="{x:Static avconv:ObjectConverters.IsNotNull}"/>
+                                    <Binding Path="BlockedUri" Converter="{x:Static avconv:ObjectConverters.IsNull}"/>
+                                </MultiBinding>
+                            </Path.IsVisible>
+                        </Path>
+                        <Path Data="{StaticResource IconWarning}" Fill="{DynamicResource SystemWarningBrush}"
+                              Width="14" Height="14" Stretch="Uniform" HorizontalAlignment="Left" Margin="12,0,0,0" IsHitTestVisible="False"
+                              IsVisible="{Binding BlockedUri, Converter={x:Static avconv:ObjectConverters.IsNotNull}}"/>
+                    </Grid>
+                    <Button Grid.Column="4" Classes="browser-nav-button" Command="{Binding NavigateCommand}" Margin="8,0,0,0" ToolTip.Tip="Go">
+                        <Path Data="{StaticResource IconChevronRight}" Fill="{DynamicResource SystemMutedTextBrush}" Width="14" Height="14" Stretch="Uniform"/>
+                    </Button>
                 </Grid>
                 <ProgressBar Classes="browser-loading-bar" IsVisible="{Binding IsLoading}"/>
                 <Grid ColumnDefinitions="*,Auto">
@@ -157,6 +204,38 @@
                                IsVisible="{Binding ClipSuccessMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
                 </StackPanel>
             </ScrollViewer>
+        </Border>
+
+        <!-- SDA-03: read-only view of the whitelist BrowserViewModel already loads for the
+             allow/block check — students previously had no way to see what's approved. -->
+        <Border DockPanel.Dock="Right" Width="360" BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="1,0,0,0" Padding="16"
+                IsVisible="{Binding IsAllowedSitesPanelOpen}">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Spacing="8" Margin="0,0,0,10">
+                    <Path Data="{StaticResource IconShield}" Fill="{DynamicResource SystemMutedTextBrush}" Width="16" Height="16" Stretch="Uniform"/>
+                    <TextBlock Text="Allowed sites" FontSize="16" FontWeight="Bold"/>
+                </StackPanel>
+                <Button DockPanel.Dock="Bottom" Content="Close" Command="{Binding CloseAllowedSitesPanelCommand}" Margin="0,10,0,0"/>
+                <ScrollViewer>
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="No sites are approved for your college yet." Classes="empty-state"
+                                   IsVisible="{Binding !AllowedSites.Count}"/>
+                        <ItemsControl ItemsSource="{Binding AllowedSites}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="models:WhitelistSiteDto">
+                                    <Border Classes="card" Margin="0,0,0,6">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="{Binding Url}" TextWrapping="Wrap"/>
+                                            <TextBlock Text="{Binding ApprovedAt, StringFormat='Approved {0:MMM d, yyyy}'}"
+                                                       Foreground="{DynamicResource SystemMutedTextBrush}" FontSize="11"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </DockPanel>
         </Border>
 
         <!-- Every tab's NativeWebView stays mounted (just hidden) across tab switches —

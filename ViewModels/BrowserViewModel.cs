@@ -35,6 +35,14 @@ public partial class BrowserViewModel : ViewModelBase
     private bool _isClipPanelOpen;
 
     [ObservableProperty]
+    private bool _isAllowedSitesPanelOpen;
+
+    // Read-only view of the same college-wide whitelist backing IsWhitelisted's host-set
+    // check above — kept as full WhitelistSiteDtos (not just hosts) so the panel can show
+    // the approved URL and date, not just a bare host.
+    public ObservableCollection<WhitelistSiteDto> AllowedSites { get; } = [];
+
+    [ObservableProperty]
     private bool _isNewNote = true;
 
     [ObservableProperty]
@@ -80,6 +88,12 @@ public partial class BrowserViewModel : ViewModelBase
                 .Select(host => host!)
                 .Distinct()
                 .ToList();
+
+            AllowedSites.Clear();
+            foreach (var site in whitelist.Sites.OrderBy(s => s.Url))
+            {
+                AllowedSites.Add(site);
+            }
         }
         catch (ApiException ex)
         {
@@ -201,6 +215,12 @@ public partial class BrowserViewModel : ViewModelBase
 
     [RelayCommand]
     private void CloseClipPanel() => IsClipPanelOpen = false;
+
+    [RelayCommand]
+    private void OpenAllowedSitesPanel() => IsAllowedSitesPanelOpen = true;
+
+    [RelayCommand]
+    private void CloseAllowedSitesPanel() => IsAllowedSitesPanelOpen = false;
 
     private bool CanSaveClip() => !IsClipBusy;
 
