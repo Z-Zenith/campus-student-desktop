@@ -24,6 +24,7 @@ public partial class CalendarViewModel : ViewModelBase
     private static readonly string[] DayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     private readonly ApiClient _apiClient;
+    private List<CalendarItemDto> _lastLoadedItems = [];
 
     public ObservableCollection<CalendarCellViewModel> GridCells { get; } = [];
     public ObservableCollection<TodoItemViewModel> Todos { get; } = [];
@@ -42,14 +43,34 @@ public partial class CalendarViewModel : ViewModelBase
     private string _newTodoTitle = "";
 
     [ObservableProperty]
+    private DateTime? _newTodoDueDate;
+
+    [ObservableProperty]
+    private int _newTodoPriority;
+
+    [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AddCustomEntryCommand))]
     private string _newCustomEntryTitle = "";
+
+    // The Monday of the week currently displayed in the grid — defaults to this week.
+    // Navigable via PreviousWeek/NextWeek/GoToToday; class sessions are only ever "this
+    // week" server-side (ThisWeeksClassSessionsAsync has no date-range parameter), so the
+    // grid/list only shows them when this equals the real current week (see IsCurrentWeek).
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCurrentWeek))]
+    [NotifyPropertyChangedFor(nameof(WeekRangeLabel))]
+    private DateTime _viewedMonday = ThisWeekMonday();
+
+    public bool IsCurrentWeek => ViewedMonday == ThisWeekMonday();
+
+    public string WeekRangeLabel => $"{ViewedMonday:MMM d} – {ViewedMonday.AddDays(6):MMM d}";
 
     public CalendarViewModel(ApiClient apiClient)
     {
         _apiClient = apiClient;
         BuildGridSkeleton();
         _ = LoadAsync();
+        _ = LoadTodosAsync();
     }
 
     [RelayCommand]
@@ -60,7 +81,8 @@ public partial class CalendarViewModel : ViewModelBase
         try
         {
             var response = await _apiClient.GetMyCalendarAsync();
-            PlaceItems(response.Items);
+            _lastLoadedItems = response.Items;
+            PlaceItems(_lastLoadedItems);
         }
         catch (ApiException ex)
         {
@@ -72,6 +94,54 @@ public partial class CalendarViewModel : ViewModelBase
         }
     }
 
+    [RelayCommand]
+    private async Task LoadTodosAsync()
+    {
+        ErrorMessage = null;
+        try
+        {
+            var todos = await _apiClient.GetMyTodosAsync();
+            Todos.Clear();
+            foreach (var todo in todos)
+            {
+                Todos.Add(new TodoItemViewModel(todo.Id, todo.Title, todo.DueDate, todo.Priority, todo.Completed,
+                    OnToggleTodoCompleteAsync, OnDeleteTodoAsync, OnEditTodoAsync));
+            }
+        }
+        catch (ApiException ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private void PreviousWeek()
+    {
+        ViewedMonday = ViewedMonday.AddDays(-7);
+        RebuildGridForViewedWeek();
+    }
+
+    [RelayCommand]
+    private void NextWeek()
+    {
+        ViewedMonday = ViewedMonday.AddDays(7);
+        RebuildGridForViewedWeek();
+    }
+
+    [RelayCommand]
+    private void GoToToday()
+    {
+        ViewedMonday = ThisWeekMonday();
+        RebuildGridForViewedWeek();
+    }
+
+    private void RebuildGridForViewedWeek()
+    {
+        GridCells.Clear();
+        BuildGridSkeleton();
+        PlaceItems(_lastLoadedItems);
+    }
+
     private bool CanAddTodo() => !string.IsNullOrWhiteSpace(NewTodoTitle);
 
     [RelayCommand(CanExecute = nameof(CanAddTodo))]
@@ -80,9 +150,11 @@ public partial class CalendarViewModel : ViewModelBase
         ErrorMessage = null;
         try
         {
-            await _apiClient.CreateTodoAsync(NewTodoTitle.Trim(), dueDate: null);
+            await _apiClient.CreateTodoAsync(NewTodoTitle.Trim(), NewTodoDueDate, NewTodoPriority);
             NewTodoTitle = "";
-            await LoadAsync();
+            NewTodoDueDate = null;
+            NewTodoPriority = 0;
+            await LoadTodosAsync();
         }
         catch (ApiException ex)
         {
@@ -113,6 +185,20 @@ public partial class CalendarViewModel : ViewModelBase
         catch (ApiException ex)
         {
             ErrorMessage = ex.Message;
+        }
+    }
+
+    private async Task<bool> OnEditTodoAsync(TodoItemViewModel todo, string title, DateTime? dueDate, int priority)
+    {
+        try
+        {
+            await _apiClient.UpdateTodoAsync(todo.Id, title, dueDate, priority);
+            return true;
+        }
+        catch (ApiException ex)
+        {
+            ErrorMessage = ex.Message;
+            return false;
         }
     }
 
@@ -151,10 +237,9 @@ public partial class CalendarViewModel : ViewModelBase
     {
         GridCells.Add(new CalendarCellViewModel(0, 0, "header"));
 
-        var monday = ThisWeekMonday();
         for (var day = 0; day < 7; day++)
         {
-            var date = monday.AddDays(day);
+            var date = ViewedMonday.AddDays(day);
             GridCells.Add(new CalendarCellViewModel(0, day + 1, "header", DayNames[day], date.ToString("MMM d")));
         }
 
@@ -169,12 +254,11 @@ public partial class CalendarViewModel : ViewModelBase
     {
         GridCells.Where(c => c.Kind is "class_session" or "college_event-grid").ToList()
             .ForEach(c => GridCells.Remove(c));
-        Todos.Clear();
         CustomEntries.Clear();
         OtherEvents.Clear();
         OtherClasses.Clear();
 
-        var monday = ThisWeekMonday();
+        var monday = ViewedMonday;
         var weekEnd = monday.AddDays(7);
 
         foreach (var item in items)
@@ -182,8 +266,9 @@ public partial class CalendarViewModel : ViewModelBase
             switch (item.Kind)
             {
                 case "todo":
-                    Todos.Add(new TodoItemViewModel(item.Id, item.Title, item.Start,
-                        item.Extra == "completed=true", OnToggleTodoCompleteAsync, OnDeleteTodoAsync));
+                    // Todos are sourced from GetMyTodosAsync (LoadTodosAsync), not this
+                    // dated-only feed — calendar/mine omits undated todos by design (#159),
+                    // which is exactly the bug the standalone Todos list must not inherit.
                     break;
                 case "custom_entry":
                     CustomEntries.Add(new CustomEntryItemViewModel(item.Id, item.Title,
@@ -204,6 +289,14 @@ public partial class CalendarViewModel : ViewModelBase
                     }
                     break;
                 case "class_session":
+                    // The backend always returns "this week"'s class sessions, regardless of
+                    // which week the client is viewing (no date-range param exists yet) —
+                    // showing them under a different week's grid would misrepresent the
+                    // schedule, so they're only placed while IsCurrentWeek.
+                    if (!IsCurrentWeek)
+                    {
+                        break;
+                    }
                     var classCol = (item.Start.Date - monday.Date).Days + 1;
                     var classRow = item.Start.Hour - FirstHour + 1;
                     if (classCol is >= 1 and <= 7 && classRow >= 1 && item.Start.Hour <= LastHour)
