@@ -127,4 +127,36 @@ public class SekBridgeTests
         Assert.Contains("__sekHostMount", script);
         Assert.Contains(userId.ToString(), script);
     }
+
+    // notes-host-entry.tsx posts { type: 'navigateToNote', noteId } as a one-way signal
+    // (not the {requestId,...} request/response shape) when a resolved wikilink is
+    // clicked in the editor.
+    [Fact]
+    public async Task Sda19_HandleMessage_NavigateToNote_RaisesEventWithParsedGuid()
+    {
+        var (bridge, _) = NewBridge();
+        var noteId = Guid.NewGuid();
+        Guid? raised = null;
+        bridge.NavigateToNoteRequested += id => raised = id;
+
+        await bridge.HandleMessageAsync(JsonSerializer.Serialize(new { type = "navigateToNote", noteId }));
+
+        Assert.Equal(noteId, raised);
+    }
+
+    // Wikilink targets are free-text Markdown, not validated GUIDs — a malformed
+    // [[not-a-guid]] link must not crash the bridge's message pump.
+    [Fact]
+    public async Task Sda19_HandleMessage_NavigateToNote_WithMalformedNoteId_DoesNotThrowOrRaise()
+    {
+        var (bridge, _) = NewBridge();
+        var raised = false;
+        bridge.NavigateToNoteRequested += _ => raised = true;
+
+        var exception = await Record.ExceptionAsync(() =>
+            bridge.HandleMessageAsync(JsonSerializer.Serialize(new { type = "navigateToNote", noteId = "not-a-guid" })));
+
+        Assert.Null(exception);
+        Assert.False(raised);
+    }
 }

@@ -41,6 +41,12 @@ public sealed class SekBridge(ApiClient apiClient)
     /// around the mount body. message is the JS error's String(error) rendering.
     public event Action<string>? MountFailed;
 
+    /// Raised when the user clicks a resolved wikilink in the editor (NotesEditorProps'
+    /// onNavigateToNote). One-way, fire-and-forget — notes-host-entry.tsx posts
+    /// { type: 'navigateToNote', noteId } rather than a {requestId,...} bridge request,
+    /// since there's no value to send back.
+    public event Action<Guid>? NavigateToNoteRequested;
+
     // SDA doesn't track a real college tenant client-side yet (LoginResponse has no
     // CollegeId — that's Track 1/auth territory, out of scope for SDA-19). NotesEditor
     // never reads UserContext.collegeId, so an empty placeholder is honest here rather
@@ -80,6 +86,16 @@ public sealed class SekBridge(ApiClient apiClient)
         if (signal?.Type == "sekHostMountFailed")
         {
             MountFailed?.Invoke(signal.Message ?? "Unknown error.");
+            return;
+        }
+        if (signal?.Type == "navigateToNote")
+        {
+            // Wikilink targets are free-text in the Markdown source — a malformed
+            // [[not-a-guid]] link shouldn't crash the bridge, just be a no-op navigate.
+            if (Guid.TryParse(signal.NoteId, out var noteId))
+            {
+                NavigateToNoteRequested?.Invoke(noteId);
+            }
             return;
         }
 
@@ -198,7 +214,7 @@ public sealed class SekBridge(ApiClient apiClient)
         _ => new SekErrorDto("network_error", "Could not reach the server. Check your connection and try again."),
     };
 
-    private sealed record HostSignal(string? Type, string? Message);
+    private sealed record HostSignal(string? Type, string? Message, string? NoteId);
     private sealed record BridgeRequest(string RequestId, string Method, JsonElement Payload);
     private sealed record BridgeResponse(string RequestId, bool Ok, object? Value, SekErrorDto? Error);
     private sealed record SekErrorDto(string Code, string Message);
