@@ -11,12 +11,17 @@ public record CalendarItemDto(string Kind, Guid Id, string Title, DateTime Start
 
 public record MyCalendarResponse(List<CalendarItemDto> Items);
 
-// SDA-14: personal to-do / custom-entry write operations.
-public record CreateTodoRequest(string Title, DateTime? DueDate);
+// SDA-14: personal to-do / custom-entry write operations. Priority is 0-3
+// (None/Low/Medium/High).
+public record CreateTodoRequest(string Title, DateTime? DueDate, int Priority = 0);
 
-public record TodoDto(Guid Id, string Title, DateTime? DueDate, bool Completed);
+public record TodoDto(Guid Id, string Title, DateTime? DueDate, bool Completed, int Priority, DateTime CreatedAt);
 
 public record SetTodoCompleteRequest(bool Completed);
+
+// DueDate is always-authoritative (resend the current value to keep it unchanged, or null
+// to clear it) — Title/Priority null means "leave unchanged".
+public record UpdateTodoRequest(string? Title, DateTime? DueDate, int? Priority);
 
 public record CreateCustomCalendarEntryRequest(string Title, DateOnly EntryDate);
 

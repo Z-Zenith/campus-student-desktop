@@ -111,6 +111,13 @@
     <Setter Property="Margin" Value="0,8"/>
   </Style>
 
+  <!-- Overdue to-do card: layers an error-tinted border on top of Border.card, same
+       DynamicResource brush the banner-error style uses so it stays theme-reactive. -->
+  <Style Selector="Border.card.overdue">
+    <Setter Property="BorderBrush" Value="{DynamicResource SystemErrorBrush}"/>
+    <Setter Property="BorderThickness" Value="1.5"/>
+  </Style>
+
   <!-- Busy/loading spinner (indeterminate ProgressBar doubling as a simple spinner) -->
   <Style Selector="ProgressBar.busy-spinner">
     <Setter Property="IsIndeterminate" Value="True"/>

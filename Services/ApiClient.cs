@@ -46,9 +46,24 @@ public class ApiClient
     }
 
     // SDA-14: personal to-do / custom-entry CRUD backing Calendar's interactive lists.
-    public async Task<TodoDto> CreateTodoAsync(string title, DateTime? dueDate)
+    // GetMyTodosAsync (not calendar/mine) is the standalone Todos list's read path — it
+    // returns undated todos too, unlike calendar/mine which omits them by design (#159).
+    public async Task<List<TodoDto>> GetMyTodosAsync()
     {
-        var response = await SendAsync(HttpMethod.Post, "/api/v1/todos", new CreateTodoRequest(title, dueDate));
+        var response = await SendAsync(HttpMethod.Get, "/api/v1/todos/mine");
+        return await response.Content.ReadFromJsonAsync<List<TodoDto>>(JsonOptions) ?? [];
+    }
+
+    public async Task<TodoDto> CreateTodoAsync(string title, DateTime? dueDate, int priority = 0)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/todos", new CreateTodoRequest(title, dueDate, priority));
+        return await response.Content.ReadFromJsonAsync<TodoDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty to-do response");
+    }
+
+    public async Task<TodoDto> UpdateTodoAsync(Guid todoId, string? title, DateTime? dueDate, int? priority)
+    {
+        var response = await SendAsync(HttpMethod.Patch, $"/api/v1/todos/{todoId}", new UpdateTodoRequest(title, dueDate, priority));
         return await response.Content.ReadFromJsonAsync<TodoDto>(JsonOptions)
             ?? throw new ApiException(500, "Empty to-do response");
     }

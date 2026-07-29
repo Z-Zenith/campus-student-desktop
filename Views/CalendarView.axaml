@@ -20,6 +20,16 @@
                 <TextBlock Text="{Binding ErrorMessage}"/>
             </Border>
 
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto">
+                <Button Grid.Column="0" Content="&lt; Previous" Command="{Binding PreviousWeekCommand}"/>
+                <Button Grid.Column="1" Content="Today" Margin="8,0,0,0" Command="{Binding GoToTodayCommand}" IsEnabled="{Binding !IsCurrentWeek}"/>
+                <Button Grid.Column="2" Content="Next &gt;" Margin="8,0,0,0" Command="{Binding NextWeekCommand}"/>
+                <TextBlock Grid.Column="4" Text="{Binding WeekRangeLabel}" FontWeight="Medium" VerticalAlignment="Center"/>
+            </Grid>
+            <Border Classes="banner-warning" IsVisible="{Binding !IsCurrentWeek}">
+                <TextBlock Text="Class sessions are only shown for the current week. Select &quot;Today&quot; to see this week's schedule."/>
+            </Border>
+
             <Border BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
                 <ItemsControl ItemsSource="{Binding GridCells}">
                     <ItemsControl.ItemsPanel>
@@ -49,23 +59,52 @@
             </Border>
 
             <TextBlock Text="To-dos" FontWeight="Bold" FontSize="14"/>
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto,Auto" RowDefinitions="Auto" >
                 <TextBox Grid.Column="0" Text="{Binding NewTodoTitle}" PlaceholderText="Add a to-do…"/>
-                <Button Grid.Column="1" Content="Add" Margin="8,0,0,0" Command="{Binding AddTodoCommand}"/>
+                <CalendarDatePicker Grid.Column="1" Margin="8,0,0,0" Width="150"
+                                     SelectedDate="{Binding NewTodoDueDate}" PlaceholderText="Due date (optional)"/>
+                <ComboBox Grid.Column="2" Margin="8,0,0,0" Width="110" SelectedIndex="{Binding NewTodoPriority}">
+                    <ComboBoxItem Content="None"/>
+                    <ComboBoxItem Content="Low"/>
+                    <ComboBoxItem Content="Medium"/>
+                    <ComboBoxItem Content="High"/>
+                </ComboBox>
+                <Button Grid.Column="3" Content="Add" Margin="8,0,0,0" Command="{Binding AddTodoCommand}"/>
             </Grid>
             <TextBlock Text="No to-dos yet." Classes="empty-state" IsVisible="{Binding Todos.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
             <ItemsControl ItemsSource="{Binding Todos}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="vm:TodoItemViewModel">
-                        <Border Classes="card" Margin="0,0,0,4">
-                            <Grid ColumnDefinitions="Auto,*,Auto,Auto">
-                                <CheckBox Grid.Column="0" IsChecked="{Binding IsCompleted}"/>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Border Classes="card" Classes.overdue="{Binding IsOverdue}" Margin="0,0,0,4">
+                            <Grid ColumnDefinitions="4,Auto,*,Auto,Auto,Auto" RowDefinitions="Auto,Auto">
+                                <Rectangle Grid.Column="0" Grid.RowSpan="2" Width="4"
+                                           Fill="{Binding Priority, Converter={x:Static conv:PriorityToBrushConverter.Instance}}"
+                                           Margin="-12,-12,8,-12"/>
+
+                                <!-- Display mode -->
+                                <CheckBox Grid.Row="0" Grid.Column="1" IsChecked="{Binding IsCompleted}" IsVisible="{Binding !IsEditing}"/>
+                                <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" IsVisible="{Binding !IsEditing}">
                                     <TextBlock Text="{Binding Title}" FontWeight="Medium"
                                                TextDecorations="{Binding IsCompleted, Converter={x:Static conv:BoolToStrikethroughConverter.Instance}}"/>
                                     <TextBlock Text="{Binding DueDate, StringFormat='due {0:MMM d}'}" Foreground="Gray" IsVisible="{Binding DueDate, Converter={x:Static avconv:ObjectConverters.IsNotNull}}"/>
+                                    <TextBlock Text="Overdue" Foreground="{DynamicResource SystemErrorBrush}" FontWeight="Bold" IsVisible="{Binding IsOverdue}"/>
                                 </StackPanel>
-                                <Button Grid.Column="3" Content="✕" Background="Transparent" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete"/>
+                                <Button Grid.Row="0" Grid.Column="4" Content="Edit" Background="Transparent" Command="{Binding BeginEditCommand}" IsVisible="{Binding !IsEditing}"/>
+                                <Button Grid.Row="0" Grid.Column="5" Content="✕" Background="Transparent" Command="{Binding DeleteCommand}" ToolTip.Tip="Delete" IsVisible="{Binding !IsEditing}"/>
+
+                                <!-- Edit mode -->
+                                <StackPanel Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="5" Orientation="Horizontal" Spacing="8" Margin="0,6,0,0" IsVisible="{Binding IsEditing}">
+                                    <TextBox Text="{Binding EditTitle}" Width="200"/>
+                                    <CalendarDatePicker SelectedDate="{Binding EditDueDate}" Width="140"/>
+                                    <ComboBox SelectedIndex="{Binding EditPriority}" Width="100">
+                                        <ComboBoxItem Content="None"/>
+                                        <ComboBoxItem Content="Low"/>
+                                        <ComboBoxItem Content="Medium"/>
+                                        <ComboBoxItem Content="High"/>
+                                    </ComboBox>
+                                    <Button Content="Save" Command="{Binding CommitEditCommand}"/>
+                                    <Button Content="Cancel" Command="{Binding CancelEditCommand}"/>
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </DataTemplate>
