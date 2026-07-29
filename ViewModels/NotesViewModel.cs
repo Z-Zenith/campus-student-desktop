@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -21,6 +22,14 @@ public partial class NotesViewModel : ViewModelBase
     public SekBridge Bridge { get; }
 
     public ObservableCollection<NoteSummaryDto> Notes { get; } = [];
+
+    // Client-side title filter over Notes — no new endpoint needed, mirrors how
+    // CalendarViewModel keeps view-state entirely in ObservableCollections rather than
+    // reaching for an ICollectionView (not used elsewhere in this codebase).
+    public ObservableCollection<NoteSummaryDto> FilteredNotes { get; } = [];
+
+    [ObservableProperty]
+    private string _searchText = "";
 
     // Toggled by NotesView's code-behind once the WebView's NavigationCompleted fires.
     // Unlike CodeEditorViewModel, Notes doesn't auto-mount an editor on open (no note is
@@ -44,7 +53,35 @@ public partial class NotesViewModel : ViewModelBase
         Bridge = new SekBridge(apiClient);
         Bridge.NoteChanged += () => _ = LoadNotesAsync();
         Bridge.MountFailed += message => ErrorMessage = $"Failed to load the note editor: {message}";
+        // Clicking a resolved wikilink in the editor — same effect as picking the target
+        // note from the sidebar list, so route through the existing SelectedNote setter
+        // rather than mounting directly.
+        Bridge.NavigateToNoteRequested += noteId =>
+        {
+            var target = Notes.FirstOrDefault(n => n.Id == noteId);
+            if (target is not null)
+            {
+                // Clear any active filter so the navigated-to note is actually visible in
+                // the sidebar, not just selected-but-hidden behind a stale search term.
+                SearchText = "";
+                SelectedNote = target;
+            }
+        };
         _ = LoadNotesAsync();
+    }
+
+    partial void OnSearchTextChanged(string value) => RebuildFilteredNotes();
+
+    private void RebuildFilteredNotes()
+    {
+        FilteredNotes.Clear();
+        var matches = string.IsNullOrWhiteSpace(SearchText)
+            ? Notes
+            : Notes.Where(n => n.Title.Contains(SearchText, StringComparison.OrdinalIgnoreCase));
+        foreach (var note in matches)
+        {
+            FilteredNotes.Add(note);
+        }
     }
 
     [RelayCommand]
@@ -58,6 +95,7 @@ public partial class NotesViewModel : ViewModelBase
             {
                 Notes.Add(note);
             }
+            RebuildFilteredNotes();
         }
         catch (ApiException ex)
         {

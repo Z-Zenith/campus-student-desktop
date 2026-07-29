@@ -3,6 +3,7 @@
              xmlns:vm="using:StudentDesktop.ViewModels"
              xmlns:models="using:StudentDesktop.Models"
              xmlns:webview="using:Avalonia.Controls"
+             xmlns:conv="using:StudentDesktop.Converters"
              xmlns:avconv="using:Avalonia.Data.Converters"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -22,11 +23,19 @@
         <Border DockPanel.Dock="Left" Width="240" BorderBrush="#DDDDDD" BorderThickness="0,0,1,0">
             <DockPanel>
                 <Button DockPanel.Dock="Top" Content="New note" Command="{Binding NewNoteCommand}"
-                        Margin="8" HorizontalAlignment="Stretch"/>
-                <ListBox ItemsSource="{Binding Notes}" SelectedItem="{Binding SelectedNote}">
+                        Margin="8,8,8,4" HorizontalAlignment="Stretch"/>
+                <TextBox DockPanel.Dock="Top" Text="{Binding SearchText}" PlaceholderText="Search notes…"
+                         Margin="8,0,8,8"/>
+                <TextBlock DockPanel.Dock="Top" Text="No notes match." Classes="empty-state" Margin="8,0"
+                           IsVisible="{Binding FilteredNotes.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
+                <ListBox ItemsSource="{Binding FilteredNotes}" SelectedItem="{Binding SelectedNote}">
                     <ListBox.ItemTemplate>
                         <DataTemplate DataType="models:NoteSummaryDto">
-                            <TextBlock Text="{Binding Title}" TextWrapping="Wrap"/>
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="{Binding Title}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding UpdatedAt, StringFormat='{}{0:MMM d, h:mm tt}'}"
+                                           FontSize="11" Foreground="Gray"/>
+                            </StackPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
