@@ -265,6 +265,20 @@ public class ApiClient
             ?? throw new ApiException(500, "Empty whitelist request response");
     }
 
+    // SDA-03 classification policy engine (Work Item A2). The backend's answer is trusted
+    // as-is — this client never computes its own allow/deny decision.
+    public async Task<ClassifyUrlResponse> ClassifyUrlAsync(ClassifyUrlRequest request)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/browser/classify", request);
+        return await response.Content.ReadFromJsonAsync<ClassifyUrlResponse>(JsonOptions)
+            ?? throw new ApiException(500, "Empty classify response");
+    }
+
+    public async Task SubmitSiteFeedbackAsync(string url, string feedback)
+    {
+        await SendAsync(HttpMethod.Post, "/api/v1/browser/classify/feedback", new SiteFeedbackRequest(url, feedback));
+    }
+
     // SEK-04
     public async Task<ImageSearchResponseDto> SearchImagesAsync(string query)
     {

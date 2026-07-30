@@ -21,6 +21,7 @@ namespace StudentDesktop.ViewModels;
 public partial class BrowserViewModel : ViewModelBase
 {
     private readonly ApiClient _apiClient;
+    private readonly ClassificationCache _classificationCache = new();
     private List<string> _whitelistedHosts = [];
 
     public ObservableCollection<BrowserTabViewModel> Tabs { get; } = [];
@@ -105,9 +106,51 @@ public partial class BrowserViewModel : ViewModelBase
         }
     }
 
-    // Passed into each BrowserTabViewModel as a delegate — the exact same fail-closed
-    // exact-host-match check every tab shared before this VM had per-tab navigation state.
-    public bool IsWhitelisted(Uri uri) => _whitelistedHosts.Contains(uri.Host.ToLowerInvariant());
+    // Passed into each BrowserTabViewModel as a delegate. Data flow, cheapest checks
+    // first (see the SDA/SEK plan's A2 section):
+    //   1. Fast local whitelist check — instant, no network, no loading-state flicker for
+    //      the overwhelmingly common already-approved case. Exact same fail-closed
+    //      host-match this VM already loaded before the classifier existed.
+    //   2. Fast local classification-result cache — avoids a network round trip on repeat
+    //      visits to the same host within this session.
+    //   3. On a genuine miss, the actual classify call. The backend computes and trusts
+    //      the decision (override lists, cache, hybrid score) — this client never
+    //      computes its own allow/deny, it only asks and caches the answer.
+    // Fails closed (Error, not Allowed) on any unreachable/unexpected failure, matching
+    // this app's existing fail-closed philosophy.
+    public async Task<NavigationDecision> ClassifyAsync(Uri uri)
+    {
+        var host = uri.Host.ToLowerInvariant();
+
+        if (_whitelistedHosts.Contains(host))
+        {
+            return NavigationDecision.Allowed();
+        }
+
+        if (_classificationCache.TryGet(host, out var cached))
+        {
+            return cached.Allowed
+                ? NavigationDecision.Allowed()
+                : NavigationDecision.Blocked($"\"{host}\" is not allowed. Ask a teacher to request access.");
+        }
+
+        try
+        {
+            var response = await _apiClient.ClassifyUrlAsync(new ClassifyUrlRequest(uri.ToString(), null, null, null, null));
+            _classificationCache.Set(host, response.Allowed, response.Score);
+            return response.Allowed
+                ? NavigationDecision.Allowed()
+                : NavigationDecision.Blocked($"\"{host}\" is not allowed. Ask a teacher to request access.");
+        }
+        catch (ApiException ex)
+        {
+            return NavigationDecision.Error(ex.Message);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return NavigationDecision.Error("Could not verify this site. Check your connection and try again.");
+        }
+    }
 
     // Passed into each BrowserTabViewModel as a delegate. Never throws — always resolves
     // to the message the tab should display, preserving the exact same wording the old
@@ -132,7 +175,7 @@ public partial class BrowserViewModel : ViewModelBase
     [RelayCommand]
     private void NewTab()
     {
-        var tab = new BrowserTabViewModel(IsWhitelisted, RequestWhitelistAsync, OnTabClosed);
+        var tab = new BrowserTabViewModel(ClassifyAsync, RequestWhitelistAsync, OnTabClosed);
         Tabs.Add(tab);
         SelectTab(tab);
     }
@@ -167,6 +210,12 @@ public partial class BrowserViewModel : ViewModelBase
             SelectTab(Tabs[Math.Min(index, Tabs.Count - 1)]);
         }
     }
+
+    // Ctrl+W: same "close" path a tab's own ✕ button uses (OnTabClosed handles the
+    // reset-to-one-fresh-tab-instead-of-zero rule), just routed from the currently
+    // selected tab instead of whichever tab was clicked.
+    [RelayCommand]
+    private void CloseSelectedTab() => SelectedTab?.CloseCommand.Execute(null);
 
     [RelayCommand]
     private async Task OpenClipPanelAsync()

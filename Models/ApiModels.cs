@@ -79,6 +79,15 @@ public record CreateWhitelistRequestRequest(string Url);
 
 public record WhitelistRequestDto(Guid Id, string Url, Guid RequestedBy, string Status, Guid? ReviewedBy);
 
+// SDA-03 classification policy engine (SDA/SEK plan, Work Item A2). The desktop client
+// never computes its own allow/deny decision — this is the backend's answer, trusted
+// as-is (see BrowserViewModel's async decision delegate).
+public record ClassifyUrlRequest(string Url, string? Title, string? MetaDescription, string? OgDescription, string? BodyText);
+
+public record ClassifyUrlResponse(bool Allowed, double Score, Dictionary<string, double> Categories, string Source);
+
+public record SiteFeedbackRequest(string Url, string Feedback);
+
 // SDA-08, SEK-03
 // SDA-19: outgoing links as parsed by SEK's own extractOutgoingLinks, forwarded as-is.
 public record NoteLinkInput(Guid ToNoteId, string Anchor);

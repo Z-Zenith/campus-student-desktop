@@ -8,7 +8,9 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="650"
              x:Class="StudentDesktop.Views.BrowserView"
-             x:DataType="vm:BrowserViewModel">
+             x:DataType="vm:BrowserViewModel"
+             Focusable="True"
+             KeyDown="OnKeyDown">
 
     <UserControl.Styles>
         <!-- Chrome-style rounded-top tab chip, mirroring ShellView's own tab-header/
@@ -120,9 +122,13 @@
                         <Path Data="{StaticResource IconRefresh}" Fill="{DynamicResource SystemMutedTextBrush}" Width="14" Height="14" Stretch="Uniform"/>
                     </Button>
                     <Grid Grid.Column="3" Margin="8,0,0,0">
-                        <TextBox Classes="browser-address-bar" Padding="34,6,14,6" Text="{Binding UrlInput}"
-                                 PlaceholderText="https://example.com — only whitelisted sites can be opened"
-                                 ToolTip.Tip="{Binding PageTitle}">
+                        <!-- SDA-03: dimmed + non-interactive while the async classify call is
+                             in flight, so a student sees something during the round trip
+                             rather than a frozen-looking address bar. -->
+                        <TextBox x:Name="AddressBar" Classes="browser-address-bar" Padding="34,6,14,6" Text="{Binding UrlInput}"
+                                 PlaceholderText="Search or enter address — only whitelisted sites can be opened"
+                                 ToolTip.Tip="{Binding PageTitle}"
+                                 IsEnabled="{Binding !IsCheckingNavigation}">
                             <TextBox.KeyBindings>
                                 <KeyBinding Gesture="Enter" Command="{Binding NavigateCommand}"/>
                             </TextBox.KeyBindings>
@@ -144,7 +150,14 @@
                         <Path Data="{StaticResource IconChevronRight}" Fill="{DynamicResource SystemMutedTextBrush}" Width="14" Height="14" Stretch="Uniform"/>
                     </Button>
                 </Grid>
-                <ProgressBar Classes="browser-loading-bar" IsVisible="{Binding IsLoading}"/>
+                <ProgressBar Classes="browser-loading-bar">
+                    <ProgressBar.IsVisible>
+                        <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                            <Binding Path="IsLoading"/>
+                            <Binding Path="IsCheckingNavigation"/>
+                        </MultiBinding>
+                    </ProgressBar.IsVisible>
+                </ProgressBar>
                 <Grid ColumnDefinitions="*,Auto">
                     <Border Grid.Column="1"/>
                     <Button Grid.Column="1" Content="Clip to Notes"
