@@ -114,16 +114,30 @@ public record SubmissionDto(Guid Id, Guid AssignmentId, Guid StudentId, string C
 // SDA-10: one row per assignment for the Assignments tile grid — GET /api/v1/assignments/mine.
 public record AssignmentSummaryDto(Guid Id, string Title, string SubjectName, string Type, DateTime DueDate, DateTime? SubmittedAt, bool? IsLate);
 
-// SDA-16
-public record GroupDto(Guid Id, string Name, string Type, Guid? SectionId);
+// SDA-16: campus-backend PR #52 ("Community redesign") split the old flat groups model
+// into Clubs (self-service join/browse), ClassroomDiscussions (one per enrolled
+// section+subject, membership implied by enrollment), and StaffGroups (teacher-only, no
+// student-facing surface — not modeled here).
+public record ClubDto(
+    Guid Id, string Name, string? Description, Guid? FacultyLeadUserId, string? FacultyLeadFullName,
+    Guid? StudentInchargeUserId, string? StudentInchargeFullName, string? HomeSiteHtml, int MemberCount);
 
-public record MyGroupsResponse(List<GroupDto> Groups);
+public record ClubMemberDto(Guid Id, Guid UserId, string UserFullName, DateTime JoinedAt);
 
 public record CreatePostRequest(string Content);
 
-public record GroupPostDto(Guid Id, Guid GroupId, Guid AuthorId, string Content, DateTime CreatedAt);
+public record ClubPostDto(Guid Id, Guid ClubId, Guid AuthorId, string Content, DateTime CreatedAt);
 
-public record MaterialDto(Guid Id, string Title, string FileUrl, Guid? SubjectId, Guid? GroupId, Guid UploadedBy, DateTime UploadedAt);
+// New shape (replaces the old GroupId-only MaterialDto) — a material now belongs to
+// exactly one of Club/ClassroomDiscussion/StaffGroup (or a bare SubjectId with none of the
+// three, per the backend's design).
+public record MaterialDto(
+    Guid Id, string Title, string FileUrl, Guid? SubjectId, Guid? ClubId, Guid? ClassroomDiscussionId,
+    Guid? StaffGroupId, Guid UploadedBy, DateTime UploadedAt);
+
+public record ClassroomDiscussionDto(Guid Id, Guid SectionId, string SectionName, Guid SubjectId, string SubjectCode, string SubjectName);
+
+public record ClassroomDiscussionPostDto(Guid Id, Guid ClassroomDiscussionId, Guid AuthorId, string Content, DateTime CreatedAt);
 
 // SDA-24, DMS-01: mirrors services/backend-api's MessageResponse/ThreadSummaryResponse
 // field-for-field (see MessagingController.cs) — same shapes DmsBridge forwards to the

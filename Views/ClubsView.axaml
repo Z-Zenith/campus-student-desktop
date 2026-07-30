@@ -1,0 +1,114 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:StudentDesktop.ViewModels"
+             xmlns:webview="using:Avalonia.Controls"
+             xmlns:avconv="using:Avalonia.Data.Converters"
+             xmlns:conv="using:StudentDesktop.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="1000" d:DesignHeight="650"
+             x:Class="StudentDesktop.Views.ClubsView"
+             x:DataType="vm:ClubsViewModel">
+
+    <UserControl.Styles>
+        <!-- Selection here is command-driven (SelectClubCommand), not a ListBox.SelectedItem
+             binding — this just needs to look like a plain, left-aligned catalog row. -->
+        <Style Selector="Button.club-list-item">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        </Style>
+        <Style Selector="Button.club-list-item:pointerover">
+            <Setter Property="Background" Value="Transparent"/>
+        </Style>
+    </UserControl.Styles>
+
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Margin="16,12" Spacing="8">
+            <TextBlock Text="Clubs" FontSize="20" FontWeight="Bold"/>
+            <TextBlock Text="Browse every club at your college and join the ones you're interested in."
+                       Foreground="Gray" TextWrapping="Wrap"/>
+            <ProgressBar Classes="busy-spinner" IsVisible="{Binding IsBusy}"/>
+            <Border Classes="banner-error" IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}">
+                <TextBlock Text="{Binding ErrorMessage}"/>
+            </Border>
+        </StackPanel>
+
+        <Border DockPanel.Dock="Left" Width="360" BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,0,1,0">
+            <ScrollViewer>
+                <StackPanel Margin="12" Spacing="8">
+                    <TextBlock Text="No clubs at your college yet." Classes="empty-state"
+                               IsVisible="{Binding Clubs.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
+                    <ItemsControl ItemsSource="{Binding Clubs}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="vm:ClubListItemViewModel">
+                                <Border Classes="card" Margin="0,0,0,8" Padding="12">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Button Grid.Column="0" Classes="club-list-item"
+                                                Command="{Binding $parent[UserControl].((vm:ClubsViewModel)DataContext).SelectClubCommand}"
+                                                CommandParameter="{Binding}">
+                                            <StackPanel Spacing="2">
+                                                <TextBlock Text="{Binding Name}" FontWeight="Bold" TextWrapping="Wrap"/>
+                                                <TextBlock Text="{Binding Description}" TextWrapping="Wrap" FontSize="12" Foreground="Gray"
+                                                           IsVisible="{Binding Description, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
+                                                <TextBlock Text="{Binding MemberCount, StringFormat='{}{0} members'}" FontSize="11" Foreground="Gray"/>
+                                            </StackPanel>
+                                        </Button>
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0" Spacing="4">
+                                            <Button Content="Join" Command="{Binding JoinCommand}" IsVisible="{Binding !IsMember}"/>
+                                            <Button Content="Leave" Command="{Binding LeaveCommand}" IsVisible="{Binding IsMember}"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <Grid>
+            <TextBlock Text="Select a club to see details." Classes="empty-state"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       IsVisible="{Binding SelectedClub, Converter={x:Static avconv:ObjectConverters.IsNull}}"/>
+
+            <ScrollViewer IsVisible="{Binding SelectedClub, Converter={x:Static avconv:ObjectConverters.IsNotNull}}">
+                <StackPanel Margin="16" Spacing="10" DataContext="{Binding SelectedClub}" x:DataType="vm:ClubListItemViewModel">
+                    <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="Bold" TextWrapping="Wrap"/>
+                    <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
+                               IsVisible="{Binding Description, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
+                    <TextBlock Text="{Binding FacultyLeadFullName, StringFormat='Faculty lead: {0}'}" Foreground="Gray"
+                               IsVisible="{Binding FacultyLeadFullName, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
+                    <TextBlock Text="{Binding StudentInchargeFullName, StringFormat='Student incharge: {0}'}" Foreground="Gray"
+                               IsVisible="{Binding StudentInchargeFullName, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}"/>
+                    <TextBlock Text="{Binding MemberCount, StringFormat='{}{0} members'}" Foreground="Gray"/>
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Content="Join this club" Command="{Binding JoinCommand}" IsVisible="{Binding !IsMember}"/>
+                        <Button Content="Leave this club" Command="{Binding LeaveCommand}" IsVisible="{Binding IsMember}"/>
+                    </StackPanel>
+                    <Border Classes="banner-error" IsVisible="{Binding ErrorMessage, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}">
+                        <TextBlock Text="{Binding ErrorMessage}"/>
+                    </Border>
+
+                    <Border BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,1,0,0" Margin="0,8"/>
+
+                    <TextBlock Text="Club home site" FontWeight="Bold"/>
+                    <TextBlock Text="This club hasn't published a home site yet." Classes="empty-state"
+                               IsVisible="{Binding HomeSiteHtml, Converter={x:Static avconv:StringConverters.IsNullOrEmpty}}"/>
+
+                    <!-- Sandboxed content surface: a brand-new NativeWebView instance (never
+                         the one BrowserView uses), no CodeBridge/DmsBridge/SekBridge wired to
+                         it, and every navigation past the initial .Html load is cancelled in
+                         ClubsView.axaml.cs's OnNavigationStarted — a club's own untrusted
+                         HTML/CSS/JS gets zero native capability and can't navigate anywhere. -->
+                    <Border BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="1" Height="380"
+                            IsVisible="{Binding HomeSiteHtml, Converter={x:Static avconv:StringConverters.IsNotNullOrEmpty}}">
+                        <webview:NativeWebView x:Name="ClubHomeSiteWebView" NavigationStarted="OnNavigationStarted"/>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </DockPanel>
+
+</UserControl>
