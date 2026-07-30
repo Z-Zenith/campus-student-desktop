@@ -35,6 +35,8 @@
                 Background="{DynamicResource SystemRailBrush}"
                 BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,0,1,0">
             <DockPanel>
+                <Image DockPanel.Dock="Top" Source="/Assets/logo.png" Width="28" Height="28"
+                       Margin="0,10" HorizontalAlignment="Center"/>
                 <ToggleButton DockPanel.Dock="Top" Content="☰" IsChecked="{Binding IsRailExpanded}"
                               HorizontalAlignment="Stretch" Margin="4" ToolTip.Tip="Expand/collapse menu"/>
 
