@@ -10,6 +10,21 @@
              x:Class="StudentDesktop.Views.CommunityView"
              x:DataType="vm:CommunityViewModel">
 
+    <UserControl.Styles>
+        <!-- Flat, left-aligned row button for the My Clubs / My Classroom Discussions
+             sidebar lists — selection here is command-driven (SelectClubCommand/
+             SelectClassroomDiscussionCommand), not a ListBox.SelectedItem binding, so this
+             just needs to look like a plain list row rather than a default button. -->
+        <Style Selector="Button.community-list-item">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="CornerRadius" Value="0"/>
+        </Style>
+        <Style Selector="Button.community-list-item:pointerover">
+            <Setter Property="Background" Value="{DynamicResource SystemRailBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
     <DockPanel>
         <StackPanel DockPanel.Dock="Top" Margin="16,12" Spacing="8">
             <TextBlock Text="Community" FontSize="20" FontWeight="Bold"/>
@@ -19,24 +34,67 @@
         </StackPanel>
 
         <Border DockPanel.Dock="Left" Width="240" BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,0,1,0">
-            <ListBox ItemsSource="{Binding Groups}" SelectedItem="{Binding SelectedGroup}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate DataType="models:GroupDto">
-                        <StackPanel>
-                            <TextBlock Text="{Binding Name}" FontWeight="Bold"/>
-                            <TextBlock Text="{Binding Type}" FontSize="11" Foreground="Gray"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+            <ScrollViewer>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="My Clubs" FontWeight="Bold" Margin="10,10,10,2"/>
+                    <TextBlock Text="No clubs joined yet." Classes="empty-state" Margin="10,0"
+                               IsVisible="{Binding MyClubs.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
+                    <ItemsControl ItemsSource="{Binding MyClubs}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="models:ClubDto">
+                                <Button Classes="community-list-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Command="{Binding $parent[UserControl].((vm:CommunityViewModel)DataContext).SelectClubCommand}"
+                                        CommandParameter="{Binding}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" TextWrapping="Wrap"/>
+                                        <TextBlock Text="Club" FontSize="11" Foreground="Gray"/>
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <Border BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,1,0,0" Margin="10,8"/>
+
+                    <TextBlock Text="My Classroom Discussions" FontWeight="Bold" Margin="10,2"/>
+                    <TextBlock Text="No classroom discussions yet." Classes="empty-state" Margin="10,0"
+                               IsVisible="{Binding MyClassroomDiscussions.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
+                    <ItemsControl ItemsSource="{Binding MyClassroomDiscussions}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="models:ClassroomDiscussionDto">
+                                <Button Classes="community-list-item" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        Command="{Binding $parent[UserControl].((vm:CommunityViewModel)DataContext).SelectClassroomDiscussionCommand}"
+                                        CommandParameter="{Binding}">
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding SectionName}" FontWeight="Bold" TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding SubjectName}" FontSize="11" Foreground="Gray"/>
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
         </Border>
 
         <Grid>
-            <TextBlock Text="Select a group to see its posts and materials." Classes="empty-state"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       IsVisible="{Binding SelectedGroup, Converter={x:Static avconv:ObjectConverters.IsNull}}"/>
+            <TextBlock Text="Select a club or classroom discussion to see its posts and materials." Classes="empty-state"
+                       HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="300">
+                <TextBlock.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.And}">
+                        <Binding Path="SelectedClub" Converter="{x:Static avconv:ObjectConverters.IsNull}"/>
+                        <Binding Path="SelectedClassroomDiscussion" Converter="{x:Static avconv:ObjectConverters.IsNull}"/>
+                    </MultiBinding>
+                </TextBlock.IsVisible>
+            </TextBlock>
 
-            <ScrollViewer IsVisible="{Binding SelectedGroup, Converter={x:Static avconv:ObjectConverters.IsNotNull}}">
+            <ScrollViewer>
+                <ScrollViewer.IsVisible>
+                    <MultiBinding Converter="{x:Static BoolConverters.Or}">
+                        <Binding Path="SelectedClub" Converter="{x:Static avconv:ObjectConverters.IsNotNull}"/>
+                        <Binding Path="SelectedClassroomDiscussion" Converter="{x:Static avconv:ObjectConverters.IsNotNull}"/>
+                    </MultiBinding>
+                </ScrollViewer.IsVisible>
                 <StackPanel Margin="16" Spacing="16">
                     <StackPanel Spacing="6">
                         <TextBlock Text="Materials" FontWeight="Bold"/>
@@ -64,7 +122,7 @@
                                    IsVisible="{Binding Posts.Count, Converter={x:Static conv:CountToIsEmptyConverter.Instance}}"/>
                         <ItemsControl ItemsSource="{Binding Posts}">
                             <ItemsControl.ItemTemplate>
-                                <DataTemplate DataType="models:GroupPostDto">
+                                <DataTemplate DataType="vm:CommunityPostItem">
                                     <Border BorderBrush="{DynamicResource SystemBorderBrush}" BorderThickness="0,0,0,1" Padding="0,8">
                                         <StackPanel>
                                             <TextBlock Text="{Binding Content}" TextWrapping="Wrap"/>

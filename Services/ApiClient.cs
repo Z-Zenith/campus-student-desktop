@@ -222,30 +222,71 @@ public class ApiClient
             ?? throw new ApiException(500, "Empty auto-submit response");
     }
 
-    // SDA-16
-    public async Task<List<GroupDto>> GetMyGroupsAsync()
+    // SDA-16: Clubs — self-service browse/join, membership not implied by enrollment.
+    public async Task<List<ClubDto>> GetClubsAsync()
     {
-        var response = await SendAsync(HttpMethod.Get, "/api/v1/groups/mine");
-        var body = await response.Content.ReadFromJsonAsync<MyGroupsResponse>(JsonOptions);
-        return body?.Groups ?? [];
+        var response = await SendAsync(HttpMethod.Get, "/api/v1/clubs");
+        return await response.Content.ReadFromJsonAsync<List<ClubDto>>(JsonOptions) ?? [];
     }
 
-    public async Task<List<GroupPostDto>> GetGroupPostsAsync(Guid groupId)
+    public async Task<List<ClubDto>> GetMyClubsAsync()
     {
-        var response = await SendAsync(HttpMethod.Get, $"/api/v1/groups/{groupId}/posts");
-        return await response.Content.ReadFromJsonAsync<List<GroupPostDto>>(JsonOptions) ?? [];
+        var response = await SendAsync(HttpMethod.Get, "/api/v1/clubs/mine");
+        return await response.Content.ReadFromJsonAsync<List<ClubDto>>(JsonOptions) ?? [];
     }
 
-    public async Task<GroupPostDto> CreateGroupPostAsync(Guid groupId, string content)
+    public async Task<ClubMemberDto> JoinClubAsync(Guid clubId)
     {
-        var response = await SendAsync(HttpMethod.Post, $"/api/v1/groups/{groupId}/posts", new CreatePostRequest(content));
-        return await response.Content.ReadFromJsonAsync<GroupPostDto>(JsonOptions)
+        var response = await SendAsync(HttpMethod.Post, $"/api/v1/clubs/{clubId}/join");
+        return await response.Content.ReadFromJsonAsync<ClubMemberDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty join-club response");
+    }
+
+    public Task LeaveClubAsync(Guid clubId) => SendAsync(HttpMethod.Post, $"/api/v1/clubs/{clubId}/leave");
+
+    public async Task<List<ClubPostDto>> GetClubPostsAsync(Guid clubId)
+    {
+        var response = await SendAsync(HttpMethod.Get, $"/api/v1/clubs/{clubId}/posts");
+        return await response.Content.ReadFromJsonAsync<List<ClubPostDto>>(JsonOptions) ?? [];
+    }
+
+    public async Task<ClubPostDto> CreateClubPostAsync(Guid clubId, string content)
+    {
+        var response = await SendAsync(HttpMethod.Post, $"/api/v1/clubs/{clubId}/posts", new CreatePostRequest(content));
+        return await response.Content.ReadFromJsonAsync<ClubPostDto>(JsonOptions)
             ?? throw new ApiException(500, "Empty post response");
     }
 
-    public async Task<List<MaterialDto>> GetGroupMaterialsAsync(Guid groupId)
+    public async Task<List<MaterialDto>> GetClubMaterialsAsync(Guid clubId)
     {
-        var response = await SendAsync(HttpMethod.Get, $"/api/v1/groups/{groupId}/materials");
+        var response = await SendAsync(HttpMethod.Get, $"/api/v1/clubs/{clubId}/materials");
+        return await response.Content.ReadFromJsonAsync<List<MaterialDto>>(JsonOptions) ?? [];
+    }
+
+    // SDA-16: ClassroomDiscussions — one per (section, subject) the student is enrolled in;
+    // membership is implied by enrollment, so there is no join/leave endpoint.
+    public async Task<List<ClassroomDiscussionDto>> GetMyClassroomDiscussionsAsync()
+    {
+        var response = await SendAsync(HttpMethod.Get, "/api/v1/classroom-discussions/mine");
+        return await response.Content.ReadFromJsonAsync<List<ClassroomDiscussionDto>>(JsonOptions) ?? [];
+    }
+
+    public async Task<List<ClassroomDiscussionPostDto>> GetClassroomDiscussionPostsAsync(Guid classroomDiscussionId)
+    {
+        var response = await SendAsync(HttpMethod.Get, $"/api/v1/classroom-discussions/{classroomDiscussionId}/posts");
+        return await response.Content.ReadFromJsonAsync<List<ClassroomDiscussionPostDto>>(JsonOptions) ?? [];
+    }
+
+    public async Task<ClassroomDiscussionPostDto> CreateClassroomDiscussionPostAsync(Guid classroomDiscussionId, string content)
+    {
+        var response = await SendAsync(HttpMethod.Post, $"/api/v1/classroom-discussions/{classroomDiscussionId}/posts", new CreatePostRequest(content));
+        return await response.Content.ReadFromJsonAsync<ClassroomDiscussionPostDto>(JsonOptions)
+            ?? throw new ApiException(500, "Empty post response");
+    }
+
+    public async Task<List<MaterialDto>> GetClassroomDiscussionMaterialsAsync(Guid classroomDiscussionId)
+    {
+        var response = await SendAsync(HttpMethod.Get, $"/api/v1/classroom-discussions/{classroomDiscussionId}/materials");
         return await response.Content.ReadFromJsonAsync<List<MaterialDto>>(JsonOptions) ?? [];
     }
 
