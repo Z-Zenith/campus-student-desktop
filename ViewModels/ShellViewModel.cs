@@ -32,6 +32,7 @@ public partial class ShellViewModel : ViewModelBase, IDisposable
     public MarksViewModel MarksViewModel { get; }
     public AssignmentsViewModel AssignmentsViewModel { get; }
     public CommunityViewModel CommunityViewModel { get; }
+    public ClubsViewModel ClubsViewModel { get; }
     public BrowserViewModel BrowserViewModel { get; }
     public NotesViewModel NotesViewModel { get; }
     public CodeEditorViewModel CodeEditorViewModel { get; }
@@ -72,6 +73,7 @@ public partial class ShellViewModel : ViewModelBase, IDisposable
         MarksViewModel = new MarksViewModel(apiClient);
         AssignmentsViewModel = new AssignmentsViewModel(apiClient);
         CommunityViewModel = new CommunityViewModel(apiClient);
+        ClubsViewModel = new ClubsViewModel(apiClient);
         BrowserViewModel = new BrowserViewModel(apiClient);
         NotesViewModel = new NotesViewModel(apiClient, userId);
         CodeEditorViewModel = new CodeEditorViewModel(apiClient, userId);
@@ -84,6 +86,7 @@ public partial class ShellViewModel : ViewModelBase, IDisposable
         AppCatalog.Add(new AppCatalogEntry("Marks", "📊", MarksViewModel));
         AppCatalog.Add(new AppCatalogEntry("Assignments", "📝", AssignmentsViewModel));
         AppCatalog.Add(new AppCatalogEntry("Community", "👥", CommunityViewModel));
+        AppCatalog.Add(new AppCatalogEntry("Clubs", "🏛️", ClubsViewModel));
         AppCatalog.Add(new AppCatalogEntry("Browser", "🌐", BrowserViewModel));
         AppCatalog.Add(new AppCatalogEntry("Notes", "🗒️", NotesViewModel));
         AppCatalog.Add(new AppCatalogEntry("Coding", "💻", CodeEditorViewModel));
