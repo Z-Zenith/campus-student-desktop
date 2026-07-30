@@ -1,14 +1,55 @@
+using System.Collections.Generic;
+using System.Linq;
 using System.Text.Json;
+using StudentDesktop.Models;
 using StudentDesktop.Services;
 
 namespace StudentDesktop.Tests;
 
+// Work Item C (SDA/SEK plan): CodeBridge's 'save' path now writes to ILocalStore instead
+// of ApiClient — a fake in-memory implementation, same fakeable-by-interface reasoning
+// ILocalStore's own doc comment gives for why CodeBridge doesn't depend on
+// LocalStoreContext directly.
+public sealed class FakeLocalStore : ILocalStore
+{
+    private readonly Dictionary<Guid, CodeProjectDto> _projects = [];
+    public Exception? FailWith { get; set; }
+
+    public Task<IReadOnlyList<CodeProjectSummaryDto>> ListCodeProjectsAsync()
+    {
+        if (FailWith is not null) throw FailWith;
+        return Task.FromResult<IReadOnlyList<CodeProjectSummaryDto>>(
+            _projects.Values.Select(p => new CodeProjectSummaryDto(p.Id, p.Name, p.UpdatedAt)).ToList());
+    }
+
+    public Task<CodeProjectDto?> GetCodeProjectAsync(Guid id)
+    {
+        if (FailWith is not null) throw FailWith;
+        return Task.FromResult(_projects.GetValueOrDefault(id));
+    }
+
+    public Task<CodeProjectDto> SaveCodeProjectAsync(CodeProjectDto project)
+    {
+        if (FailWith is not null) throw FailWith;
+        _projects[project.Id] = project;
+        return Task.FromResult(project);
+    }
+
+    public Task DeleteCodeProjectAsync(Guid id)
+    {
+        if (FailWith is not null) throw FailWith;
+        _projects.Remove(id);
+        return Task.CompletedTask;
+    }
+}
+
 public class CodeBridgeTests
 {
-    private static (CodeBridge Bridge, Func<string?> LastScript) NewBridge()
+    private static (CodeBridge Bridge, Func<string?> LastScript, FakeLocalStore LocalStore) NewBridge()
     {
         string? lastScript = null;
-        var bridge = new CodeBridge(new ApiClient("http://localhost:0"))
+        var localStore = new FakeLocalStore();
+        var bridge = new CodeBridge(new ApiClient("http://localhost:0"), localStore)
         {
             InvokeScript = script =>
             {
@@ -16,7 +57,7 @@ public class CodeBridgeTests
                 return Task.CompletedTask;
             },
         };
-        return (bridge, () => lastScript);
+        return (bridge, () => lastScript, localStore);
     }
 
     // window.__sekHostMount/__sekHostReceive both take a JSON *string* argument (see
@@ -38,7 +79,7 @@ public class CodeBridgeTests
     [Fact]
     public async Task Sek01_HandleMessage_Run_WithNoReachableServer_RespondsWithNetworkError()
     {
-        var (bridge, lastScript) = NewBridge();
+        var (bridge, lastScript, _) = NewBridge();
         var payload = JsonSerializer.Serialize(new
         {
             requestId = "run-1",
@@ -67,10 +108,50 @@ public class CodeBridgeTests
         Assert.Contains("network_error", response);
     }
 
+    // Work Item C: 'save' now writes to the local encrypted scratch store, not the
+    // backend — an unreachable server no longer matters for this path, so the old
+    // no-server-fails-closed premise doesn't apply here anymore (see the
+    // LocalStoreUnavailable test below for save's actual failure mode).
     [Fact]
-    public async Task Sek01_HandleMessage_Save_WithNoReachableServer_RespondsWithNetworkError()
+    public async Task Sek01_HandleMessage_Save_PersistsToLocalStore_AndRespondsOk()
     {
-        var (bridge, lastScript) = NewBridge();
+        var (bridge, lastScript, localStore) = NewBridge();
+        var projectId = Guid.NewGuid();
+        var payload = JsonSerializer.Serialize(new
+        {
+            requestId = "save-1",
+            method = "save",
+            payload = new
+            {
+                project = new
+                {
+                    id = projectId,
+                    name = "proj",
+                    files = new[] { new { path = "main.py", language = "python", content = "print(1)" } },
+                    entryFilePath = "main.py",
+                    activeFilePath = "main.py",
+                    stdin = (string?)null,
+                },
+            },
+        });
+
+        await bridge.HandleMessageAsync(payload);
+
+        var script = lastScript();
+        Assert.NotNull(script);
+        var response = ExtractPayload(script, "__sekHostReceive");
+        Assert.Contains("save-1", response);
+        Assert.Contains("\"ok\":true", response);
+        var saved = await localStore.GetCodeProjectAsync(projectId);
+        Assert.NotNull(saved);
+        Assert.Equal("proj", saved!.Name);
+    }
+
+    [Fact]
+    public async Task Sek01_HandleMessage_Save_WithLocalStoreUnavailable_RespondsWithNetworkError()
+    {
+        var (bridge, lastScript, localStore) = NewBridge();
+        localStore.FailWith = new LocalStoreUnavailableException("Local scratch storage is unavailable.");
         var payload = JsonSerializer.Serialize(new
         {
             requestId = "save-1",
@@ -102,7 +183,7 @@ public class CodeBridgeTests
     [Fact]
     public async Task Sek01_HandleMessage_TerminalStart_WithNoReachableServer_RespondsWithNetworkError()
     {
-        var (bridge, lastScript) = NewBridge();
+        var (bridge, lastScript, _) = NewBridge();
         var payload = JsonSerializer.Serialize(new
         {
             requestId = "term-start-1",
@@ -126,7 +207,7 @@ public class CodeBridgeTests
     [Fact]
     public async Task Sek01_HandleMessage_TerminalExec_WithNoReachableServer_RespondsWithNetworkError()
     {
-        var (bridge, lastScript) = NewBridge();
+        var (bridge, lastScript, _) = NewBridge();
         var payload = JsonSerializer.Serialize(new
         {
             requestId = "term-exec-1",
@@ -151,7 +232,7 @@ public class CodeBridgeTests
     [Fact]
     public async Task Sek01_HandleMessage_TerminalClose_WithNoReachableServer_StillRespondsOk()
     {
-        var (bridge, lastScript) = NewBridge();
+        var (bridge, lastScript, _) = NewBridge();
         var payload = JsonSerializer.Serialize(new
         {
             requestId = "term-close-1",
@@ -171,7 +252,7 @@ public class CodeBridgeTests
     [Fact]
     public async Task Sek01_HandleMessage_UnknownMethod_RespondsWithValidationError()
     {
-        var (bridge, lastScript) = NewBridge();
+        var (bridge, lastScript, _) = NewBridge();
         var payload = JsonSerializer.Serialize(new { requestId = "req-1", method = "bogus", payload = new { } });
 
         await bridge.HandleMessageAsync(payload);
@@ -185,7 +266,7 @@ public class CodeBridgeTests
     [Fact]
     public async Task Sek01_Mount_WithNoInvokeScriptWired_DoesNotThrow()
     {
-        var bridge = new CodeBridge(new ApiClient("http://localhost:0"));
+        var bridge = new CodeBridge(new ApiClient("http://localhost:0"), new FakeLocalStore());
 
         var exception = await Record.ExceptionAsync(
             () => bridge.MountAsync(Guid.NewGuid(), currentProject: null, canRun: true, canEdit: true));
@@ -196,7 +277,7 @@ public class CodeBridgeTests
     [Fact]
     public async Task Sek01_Mount_InvokesHostMountWithUserAndProjectContext()
     {
-        var (bridge, lastScript) = NewBridge();
+        var (bridge, lastScript, _) = NewBridge();
         var userId = Guid.NewGuid();
 
         await bridge.MountAsync(userId, currentProject: null, canRun: true, canEdit: true);
@@ -220,7 +301,7 @@ public class CodeBridgeTests
     [Fact]
     public async Task Sek01_Mount_ArgumentIsAQuotedJsonStringNotABareObjectLiteral()
     {
-        var (bridge, lastScript) = NewBridge();
+        var (bridge, lastScript, _) = NewBridge();
 
         await bridge.MountAsync(Guid.NewGuid(), currentProject: null, canRun: true, canEdit: true);
 

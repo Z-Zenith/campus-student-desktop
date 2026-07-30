@@ -9,12 +9,12 @@ using StudentDesktop.Models;
 namespace StudentDesktop.Services;
 
 // SEK-01: bridges the Coding app's CodeEditor (hosted in a NativeWebView — see
-// CodeEditorView) to the Backend API, mirroring SekBridge's protocol exactly (see that
-// class for the full postMessage/InvokeScript rationale). Two bridged methods: 'run' and
-// 'save' — 'save' tries UpdateCodeProjectAsync first and falls back to
-// CreateCodeProjectAsync on a 404, exactly like SekBridge.SaveAsync does for notes (a
-// project SEK just generated an Id for has nothing to update yet).
-public sealed class CodeBridge(ApiClient apiClient)
+// CodeEditorView) to the Backend API and, for 'save'/project persistence, to the local
+// encrypted scratch store (Work Item C, SDA/SEK plan) — code projects are scratch/working
+// files that never sync to the backend; only an explicit Submit action (see
+// CodeEditorViewModel.SubmitCurrentProjectAsync) uploads anything. 'run'/'runPreview'/
+// 'terminal*' still go through apiClient since those genuinely execute server-side.
+public sealed class CodeBridge(ApiClient apiClient, ILocalStore localStore)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -98,7 +98,7 @@ public sealed class CodeBridge(ApiClient apiClient)
                     new SekErrorDto("validation_error", $"Unknown code bridge method '{request.Method}'.")),
             };
         }
-        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException or LocalStoreUnavailableException)
         {
             response = new BridgeResponse(request.RequestId, false, null, MapError(ex));
         }
@@ -138,18 +138,14 @@ public sealed class CodeBridge(ApiClient apiClient)
             ?? throw new InvalidOperationException("Malformed 'save' payload.");
         var input = save.Project;
 
-        CodeProjectDto saved;
-        try
-        {
-            saved = await apiClient.UpdateCodeProjectAsync(
-                input.Id, input.Name, ToApiFiles(input.Files), input.EntryFilePath, input.ActiveFilePath, input.Stdin);
-        }
-        catch (ApiException ex) when (ex.StatusCode == 404)
-        {
-            // First save of a project SEK just generated an Id for — nothing to update yet.
-            saved = await apiClient.CreateCodeProjectAsync(
-                input.Name, ToApiFiles(input.Files), input.EntryFilePath, input.ActiveFilePath, input.Stdin, input.Id);
-        }
+        // Local upsert (see ILocalStore) — no update-then-404-fallback dance needed, unlike
+        // the old server-backed path: a local store has no "not found" concept to fall back
+        // from, it just writes the row either way. CreatedAt/UpdatedAt here are placeholders
+        // the store overwrites itself (preserving the real CreatedAt on an existing row).
+        var project = new CodeProjectDto(
+            input.Id, input.Name, ToApiFiles(input.Files), input.EntryFilePath, input.ActiveFilePath, input.Stdin,
+            DateTime.UtcNow, DateTime.UtcNow);
+        var saved = await localStore.SaveCodeProjectAsync(project);
 
         ProjectChanged?.Invoke();
         return new BridgeResponse(requestId, true, ToSekProject(saved), null);
@@ -222,6 +218,8 @@ public sealed class CodeBridge(ApiClient apiClient)
 
     private static SekErrorDto MapError(Exception ex) => ex switch
     {
+        LocalStoreUnavailableException => new SekErrorDto(
+            "network_error", "Local scratch storage is unavailable right now. Your changes were not saved."),
         ApiException { StatusCode: 404 } => new SekErrorDto("validation_error", "Project not found."),
         ApiException { StatusCode: 403 } => new SekErrorDto("unauthorized", "You don't have access to this project."),
         ApiException { StatusCode: 400 } apiEx => new SekErrorDto("validation_error", apiEx.Message),
