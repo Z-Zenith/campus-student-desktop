@@ -120,6 +120,19 @@ public partial class BrowserViewModel : ViewModelBase
     // this app's existing fail-closed philosophy.
     public async Task<NavigationDecision> ClassifyAsync(Uri uri)
     {
+        // B2 live preview (SDA/SEK plan): a running preview (Work Item B2) opens as a tab
+        // in this same browser, so its URL has to clear this same gate — without this
+        // exemption, the feature would immediately block itself. Deliberately loopback
+        // AND within PreviewSessionService's own reserved port range (not "any loopback
+        // port"), which would trivially let a student get anything listening on
+        // localhost past the classifier — see PreviewSessionService.PortRangeStart/End,
+        // which this range must stay in sync with. Checked first: fastest, no network,
+        // no override-list/cache lookup needed.
+        if (IsLocalPreviewAddress(uri))
+        {
+            return NavigationDecision.Allowed();
+        }
+
         var host = uri.Host.ToLowerInvariant();
 
         if (_whitelistedHosts.Contains(host))
@@ -178,6 +191,20 @@ public partial class BrowserViewModel : ViewModelBase
         var tab = new BrowserTabViewModel(ClassifyAsync, RequestWhitelistAsync, OnTabClosed);
         Tabs.Add(tab);
         SelectTab(tab);
+    }
+
+    // B2 live preview (SDA/SEK plan): called by ShellViewModel when CodeBridge's
+    // PreviewReady fires. A fresh tab, source set directly (not routed through
+    // NavigateAsync/UrlInput) since a preview URL is already a trusted, backend-issued
+    // address — it still passes through IsLocalPreviewAddress's exemption the same as any
+    // other in-page navigation would (link clicks inside the preview itself), just not
+    // re-classified redundantly on the way in.
+    public void OpenPreviewTab(string url)
+    {
+        var tab = new BrowserTabViewModel(ClassifyAsync, RequestWhitelistAsync, OnTabClosed);
+        Tabs.Add(tab);
+        SelectTab(tab);
+        tab.CurrentSource = new Uri(url);
     }
 
     [RelayCommand]
@@ -330,6 +357,13 @@ public partial class BrowserViewModel : ViewModelBase
             IsClipBusy = false;
         }
     }
+
+    // Must stay in sync with campus-backend's PreviewSessionService.PortRangeStart/End.
+    private const int PreviewPortRangeStart = 45000;
+    private const int PreviewPortRangeEnd = 45100;
+
+    private static bool IsLocalPreviewAddress(Uri uri) =>
+        uri.IsLoopback && uri.Port >= PreviewPortRangeStart && uri.Port <= PreviewPortRangeEnd;
 
     private static string? TryGetHost(string url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host.ToLowerInvariant() : null;

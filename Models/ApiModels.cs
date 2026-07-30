@@ -35,6 +35,11 @@ public record RunCodeProjectRequest(string EntryFilePath, IReadOnlyList<CodeFile
 
 public record CodeRunResultDto(string Stdout, string Stderr, int ExitCode, long DurationMs, bool TimedOut, string? Status);
 
+// B2 live preview (SDA/SEK plan)
+public record RunPreviewRequest(string EntryFilePath, IReadOnlyList<CodeFileDto> Files);
+
+public record RunPreviewResponse(Guid SessionId, string PreviewUrl, string Mode, bool IsReady);
+
 public record CreateCodeProjectRequest(
     string Name, IReadOnlyList<CodeFileDto> Files, string EntryFilePath, string ActiveFilePath, string? Stdin, Guid? Id = null);
 

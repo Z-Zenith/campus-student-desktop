@@ -34,6 +34,13 @@ public sealed class CodeBridge(ApiClient apiClient)
     /// around the mount body. message is the JS error's String(error) rendering.
     public event Action<string>? MountFailed;
 
+    /// B2 live preview (SDA/SEK plan): raised after a successful 'runPreview' bridge call
+    /// so CodeEditorViewModel can ask ShellViewModel to open the URL as a new tab in the
+    /// built-in browser — this bridge stays UI-agnostic (no Browser/Shell reference of
+    /// its own), same reasoning as InvokeScript being a delegate instead of a WebView
+    /// reference.
+    public event Action<string>? PreviewReady;
+
     public async Task MountAsync(Guid userId, CodeProjectDto? currentProject, bool canRun, bool canEdit)
     {
         var user = new SekUserContext(userId.ToString(), apiClient.Token ?? "", "student", "");
@@ -82,6 +89,7 @@ public sealed class CodeBridge(ApiClient apiClient)
             response = request.Method switch
             {
                 "run" => await RunAsync(request.RequestId, request.Payload),
+                "runPreview" => await RunPreviewAsync(request.RequestId, request.Payload),
                 "save" => await SaveAsync(request.RequestId, request.Payload),
                 "terminalStart" => await TerminalStartAsync(request.RequestId, request.Payload),
                 "terminalExec" => await TerminalExecAsync(request.RequestId, request.Payload),
@@ -111,6 +119,17 @@ public sealed class CodeBridge(ApiClient apiClient)
 
         var result = await apiClient.RunCodeAsync(project.EntryFilePath, ToApiFiles(project.Files), project.Stdin);
         return new BridgeResponse(requestId, true, ToSekResult(result), null);
+    }
+
+    private async Task<BridgeResponse> RunPreviewAsync(string requestId, JsonElement payload)
+    {
+        var run = payload.Deserialize<RunPayload>(JsonOptions)
+            ?? throw new InvalidOperationException("Malformed 'runPreview' payload.");
+        var project = run.Project;
+
+        var result = await apiClient.RunPreviewAsync(project.EntryFilePath, ToApiFiles(project.Files));
+        PreviewReady?.Invoke(result.PreviewUrl);
+        return new BridgeResponse(requestId, true, new SekRunPreviewResultDto(result.PreviewUrl, result.Mode, result.IsReady), null);
     }
 
     private async Task<BridgeResponse> SaveAsync(string requestId, JsonElement payload)
@@ -227,6 +246,7 @@ public sealed class CodeBridge(ApiClient apiClient)
     private sealed record SekCodeProjectRequiredIdDto(
         Guid Id, string Name, IReadOnlyList<SekCodeFileDto> Files, string EntryFilePath, string ActiveFilePath, string? Stdin);
     private sealed record SekCodeRunResultDto(string Stdout, string Stderr, int ExitCode, long DurationMs, bool TimedOut, string? Status);
+    private sealed record SekRunPreviewResultDto(string PreviewUrl, string Mode, bool IsReady);
     private sealed record TerminalStartPayload(IReadOnlyList<SekCodeFileDto> Files);
     private sealed record TerminalExecPayload(Guid SessionId, string Command);
     private sealed record TerminalClosePayload(Guid SessionId);

@@ -94,6 +94,19 @@ public class ApiClient
             ?? throw new ApiException(500, "Empty code-run response");
     }
 
+    // B2 live preview (SDA/SEK plan): the returned PreviewUrl is a real reachable
+    // loopback address the desktop client opens as a new tab in its own built-in
+    // browser (see BrowserViewModel.IsLocalPreviewAddress for the matching classifier
+    // exemption this relies on).
+    public async Task<RunPreviewResponse> RunPreviewAsync(string entryFilePath, IReadOnlyList<CodeFileDto> files)
+    {
+        var response = await SendAsync(HttpMethod.Post, "/api/v1/code/run-preview", new RunPreviewRequest(entryFilePath, files));
+        return await response.Content.ReadFromJsonAsync<RunPreviewResponse>(JsonOptions)
+            ?? throw new ApiException(500, "Empty run-preview response");
+    }
+
+    public Task StopPreviewAsync(Guid sessionId) => SendAsync(HttpMethod.Post, $"/api/v1/code/run-preview/{sessionId}/stop");
+
     // SEK-01: the Coding app's integrated terminal.
     public async Task<Guid> StartTerminalAsync(IReadOnlyList<CodeFileDto> files)
     {

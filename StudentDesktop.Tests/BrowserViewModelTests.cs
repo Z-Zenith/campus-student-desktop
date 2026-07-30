@@ -248,6 +248,50 @@ public class BrowserViewModelTests
         Assert.Equal(NavigationDecisionKind.Error, decision.Kind);
     }
 
+    // B2 live preview (SDA/SEK plan): a loopback address within PreviewSessionService's
+    // reserved port range must be allowed instantly, with no network call — even against
+    // a genuinely unreachable server, unlike the equivalent non-preview address just above.
+    [Theory]
+    [InlineData(45000)]
+    [InlineData(45050)]
+    [InlineData(45100)]
+    public async Task ClassifyAsync_LocalPreviewAddress_IsAllowedWithoutContactingTheServer(int port)
+    {
+        var viewModel = new BrowserViewModel(new ApiClient("http://localhost:0"));
+
+        var decision = await viewModel.ClassifyAsync(new Uri($"http://127.0.0.1:{port}/"));
+
+        Assert.Equal(NavigationDecisionKind.Allowed, decision.Kind);
+    }
+
+    // Deliberately narrower than "any loopback port" — see BrowserViewModel's own doc
+    // comment on why. A loopback address OUTSIDE the reserved preview range must go
+    // through the normal classify path (and fail closed here, same unreachable server).
+    [Theory]
+    [InlineData(44999)]
+    [InlineData(45101)]
+    [InlineData(8080)]
+    public async Task ClassifyAsync_LoopbackAddressOutsideTheReservedRange_IsNotExempted(int port)
+    {
+        var viewModel = new BrowserViewModel(new ApiClient("http://localhost:0"));
+
+        var decision = await viewModel.ClassifyAsync(new Uri($"http://127.0.0.1:{port}/"));
+
+        Assert.Equal(NavigationDecisionKind.Error, decision.Kind);
+    }
+
+    [Fact]
+    public void OpenPreviewTab_OpensANewTabDirectlyAtTheGivenUrl()
+    {
+        var viewModel = new BrowserViewModel(new ApiClient("http://localhost:0"));
+        var initialTabCount = viewModel.Tabs.Count;
+
+        viewModel.OpenPreviewTab("http://127.0.0.1:45000/");
+
+        Assert.Equal(initialTabCount + 1, viewModel.Tabs.Count);
+        Assert.Equal(new Uri("http://127.0.0.1:45000/"), viewModel.SelectedTab!.CurrentSource);
+    }
+
     [Fact]
     public async Task SDA08_SaveClipRequiresTitleForNewNote()
     {
