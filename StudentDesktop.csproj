@@ -38,6 +38,21 @@
          whitelisted browser. MIT-licensed, official AvaloniaUI package — not the paid
          Avalonia Accelerate product. -->
     <PackageReference Include="Avalonia.Controls.WebView" Version="12.0.1" />
+    <!-- Work Item C (SDA/SEK plan): local encrypted scratch store, see LocalStoreContext.
+         Microsoft.Data.Sqlite transitively pulls SQLitePCLRaw.bundle_e_sqlite3 (the plain,
+         unencrypted provider) alongside bundle_e_sqlcipher's encrypted one — NU1903 flags
+         its SQLitePCLRaw.lib.e_sqlite3 2.1.11 for CVE-2025-6965 (a >=3.50.2 SQLite fix,
+         first_patched_version null for this package at time of writing; the newer 3.x
+         SQLitePCLRaw.lib.e_sqlite3 releases aren't paired with a compatible e_sqlcipher
+         release yet, so pinning past 2.1.11 here isn't safely possible today). Real-world
+         exposure is bounded: LocalStoreContext.OpenAsync explicitly calls
+         raw.SetProvider(new SQLite3Provider_e_sqlcipher()) before opening any connection,
+         so this plain e_sqlite3 provider is never the one actually used to parse SQL in
+         this app — but it does still ship in the output, so revisit this pin once a patched
+         e_sqlcipher release exists upstream. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.10" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlcipher" Version="2.1.11" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.10" />
   </ItemGroup>
 
   <!-- SDA-19: SEK-03's NotesEditor is React/TypeScript; embedding it means loading a

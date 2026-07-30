@@ -88,6 +88,30 @@
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+
+                <!-- C3 (SDA/SEK plan): explicit, one-time upload from local scratch
+                     storage to the backend — everything else in this sidebar reads/writes
+                     only the local encrypted store. Kept as a manual assignment-ID entry
+                     to match AssignmentsViewModel's own existing submit form, rather than
+                     wiring a cross-app assignment picker just for this. -->
+                <StackPanel DockPanel.Dock="Bottom" Margin="8,8,8,10" Spacing="6"
+                            IsVisible="{Binding SelectedProject, Converter={x:Static avconv:ObjectConverters.IsNotNull}}">
+                    <TextBlock Text="SUBMIT AS ASSIGNMENT" FontSize="11" FontWeight="Bold" LetterSpacing="1"
+                               Foreground="{StaticResource CodeChromeMuted}"/>
+                    <TextBox Text="{Binding SubmitAssignmentId}" PlaceholderText="Assignment ID"
+                             FontSize="12" Padding="8,6"/>
+                    <Button Content="Submit" Command="{Binding SubmitCurrentProjectCommand}"
+                            Padding="0,7" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Background="{StaticResource CodeAccent}" Foreground="White" BorderThickness="0" CornerRadius="3">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{StaticResource CodeAccentHover}"/>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+                    <TextBlock Text="Submitted ✓" FontSize="11" Foreground="#89D185"
+                               IsVisible="{Binding LastSubmission, Converter={x:Static avconv:ObjectConverters.IsNotNull}}"/>
+                </StackPanel>
             </DockPanel>
         </Border>
 

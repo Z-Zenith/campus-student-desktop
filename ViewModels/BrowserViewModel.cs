@@ -21,6 +21,7 @@ namespace StudentDesktop.ViewModels;
 public partial class BrowserViewModel : ViewModelBase
 {
     private readonly ApiClient _apiClient;
+    private readonly ClassificationCache _classificationCache = new();
     private List<string> _whitelistedHosts = [];
 
     public ObservableCollection<BrowserTabViewModel> Tabs { get; } = [];
@@ -105,9 +106,64 @@ public partial class BrowserViewModel : ViewModelBase
         }
     }
 
-    // Passed into each BrowserTabViewModel as a delegate — the exact same fail-closed
-    // exact-host-match check every tab shared before this VM had per-tab navigation state.
-    public bool IsWhitelisted(Uri uri) => _whitelistedHosts.Contains(uri.Host.ToLowerInvariant());
+    // Passed into each BrowserTabViewModel as a delegate. Data flow, cheapest checks
+    // first (see the SDA/SEK plan's A2 section):
+    //   1. Fast local whitelist check — instant, no network, no loading-state flicker for
+    //      the overwhelmingly common already-approved case. Exact same fail-closed
+    //      host-match this VM already loaded before the classifier existed.
+    //   2. Fast local classification-result cache — avoids a network round trip on repeat
+    //      visits to the same host within this session.
+    //   3. On a genuine miss, the actual classify call. The backend computes and trusts
+    //      the decision (override lists, cache, hybrid score) — this client never
+    //      computes its own allow/deny, it only asks and caches the answer.
+    // Fails closed (Error, not Allowed) on any unreachable/unexpected failure, matching
+    // this app's existing fail-closed philosophy.
+    public async Task<NavigationDecision> ClassifyAsync(Uri uri)
+    {
+        // B2 live preview (SDA/SEK plan): a running preview (Work Item B2) opens as a tab
+        // in this same browser, so its URL has to clear this same gate — without this
+        // exemption, the feature would immediately block itself. Deliberately loopback
+        // AND within PreviewSessionService's own reserved port range (not "any loopback
+        // port"), which would trivially let a student get anything listening on
+        // localhost past the classifier — see PreviewSessionService.PortRangeStart/End,
+        // which this range must stay in sync with. Checked first: fastest, no network,
+        // no override-list/cache lookup needed.
+        if (IsLocalPreviewAddress(uri))
+        {
+            return NavigationDecision.Allowed();
+        }
+
+        var host = uri.Host.ToLowerInvariant();
+
+        if (_whitelistedHosts.Contains(host))
+        {
+            return NavigationDecision.Allowed();
+        }
+
+        if (_classificationCache.TryGet(host, out var cached))
+        {
+            return cached.Allowed
+                ? NavigationDecision.Allowed()
+                : NavigationDecision.Blocked($"\"{host}\" is not allowed. Ask a teacher to request access.");
+        }
+
+        try
+        {
+            var response = await _apiClient.ClassifyUrlAsync(new ClassifyUrlRequest(uri.ToString(), null, null, null, null));
+            _classificationCache.Set(host, response.Allowed, response.Score);
+            return response.Allowed
+                ? NavigationDecision.Allowed()
+                : NavigationDecision.Blocked($"\"{host}\" is not allowed. Ask a teacher to request access.");
+        }
+        catch (ApiException ex)
+        {
+            return NavigationDecision.Error(ex.Message);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            return NavigationDecision.Error("Could not verify this site. Check your connection and try again.");
+        }
+    }
 
     // Passed into each BrowserTabViewModel as a delegate. Never throws — always resolves
     // to the message the tab should display, preserving the exact same wording the old
@@ -132,9 +188,23 @@ public partial class BrowserViewModel : ViewModelBase
     [RelayCommand]
     private void NewTab()
     {
-        var tab = new BrowserTabViewModel(IsWhitelisted, RequestWhitelistAsync, OnTabClosed);
+        var tab = new BrowserTabViewModel(ClassifyAsync, RequestWhitelistAsync, OnTabClosed);
         Tabs.Add(tab);
         SelectTab(tab);
+    }
+
+    // B2 live preview (SDA/SEK plan): called by ShellViewModel when CodeBridge's
+    // PreviewReady fires. A fresh tab, source set directly (not routed through
+    // NavigateAsync/UrlInput) since a preview URL is already a trusted, backend-issued
+    // address — it still passes through IsLocalPreviewAddress's exemption the same as any
+    // other in-page navigation would (link clicks inside the preview itself), just not
+    // re-classified redundantly on the way in.
+    public void OpenPreviewTab(string url)
+    {
+        var tab = new BrowserTabViewModel(ClassifyAsync, RequestWhitelistAsync, OnTabClosed);
+        Tabs.Add(tab);
+        SelectTab(tab);
+        tab.CurrentSource = new Uri(url);
     }
 
     [RelayCommand]
@@ -167,6 +237,12 @@ public partial class BrowserViewModel : ViewModelBase
             SelectTab(Tabs[Math.Min(index, Tabs.Count - 1)]);
         }
     }
+
+    // Ctrl+W: same "close" path a tab's own ✕ button uses (OnTabClosed handles the
+    // reset-to-one-fresh-tab-instead-of-zero rule), just routed from the currently
+    // selected tab instead of whichever tab was clicked.
+    [RelayCommand]
+    private void CloseSelectedTab() => SelectedTab?.CloseCommand.Execute(null);
 
     [RelayCommand]
     private async Task OpenClipPanelAsync()
@@ -281,6 +357,13 @@ public partial class BrowserViewModel : ViewModelBase
             IsClipBusy = false;
         }
     }
+
+    // Must stay in sync with campus-backend's PreviewSessionService.PortRangeStart/End.
+    private const int PreviewPortRangeStart = 45000;
+    private const int PreviewPortRangeEnd = 45100;
+
+    private static bool IsLocalPreviewAddress(Uri uri) =>
+        uri.IsLoopback && uri.Port >= PreviewPortRangeStart && uri.Port <= PreviewPortRangeEnd;
 
     private static string? TryGetHost(string url) =>
         Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host.ToLowerInvariant() : null;

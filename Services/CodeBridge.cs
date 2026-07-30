@@ -9,12 +9,12 @@ using StudentDesktop.Models;
 namespace StudentDesktop.Services;
 
 // SEK-01: bridges the Coding app's CodeEditor (hosted in a NativeWebView — see
-// CodeEditorView) to the Backend API, mirroring SekBridge's protocol exactly (see that
-// class for the full postMessage/InvokeScript rationale). Two bridged methods: 'run' and
-// 'save' — 'save' tries UpdateCodeProjectAsync first and falls back to
-// CreateCodeProjectAsync on a 404, exactly like SekBridge.SaveAsync does for notes (a
-// project SEK just generated an Id for has nothing to update yet).
-public sealed class CodeBridge(ApiClient apiClient)
+// CodeEditorView) to the Backend API and, for 'save'/project persistence, to the local
+// encrypted scratch store (Work Item C, SDA/SEK plan) — code projects are scratch/working
+// files that never sync to the backend; only an explicit Submit action (see
+// CodeEditorViewModel.SubmitCurrentProjectAsync) uploads anything. 'run'/'runPreview'/
+// 'terminal*' still go through apiClient since those genuinely execute server-side.
+public sealed class CodeBridge(ApiClient apiClient, ILocalStore localStore)
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -33,6 +33,13 @@ public sealed class CodeBridge(ApiClient apiClient)
     /// Raised when window.__sekHostMount throws — see code-host-entry.tsx's try/catch
     /// around the mount body. message is the JS error's String(error) rendering.
     public event Action<string>? MountFailed;
+
+    /// B2 live preview (SDA/SEK plan): raised after a successful 'runPreview' bridge call
+    /// so CodeEditorViewModel can ask ShellViewModel to open the URL as a new tab in the
+    /// built-in browser — this bridge stays UI-agnostic (no Browser/Shell reference of
+    /// its own), same reasoning as InvokeScript being a delegate instead of a WebView
+    /// reference.
+    public event Action<string>? PreviewReady;
 
     public async Task MountAsync(Guid userId, CodeProjectDto? currentProject, bool canRun, bool canEdit)
     {
@@ -82,6 +89,7 @@ public sealed class CodeBridge(ApiClient apiClient)
             response = request.Method switch
             {
                 "run" => await RunAsync(request.RequestId, request.Payload),
+                "runPreview" => await RunPreviewAsync(request.RequestId, request.Payload),
                 "save" => await SaveAsync(request.RequestId, request.Payload),
                 "terminalStart" => await TerminalStartAsync(request.RequestId, request.Payload),
                 "terminalExec" => await TerminalExecAsync(request.RequestId, request.Payload),
@@ -90,7 +98,7 @@ public sealed class CodeBridge(ApiClient apiClient)
                     new SekErrorDto("validation_error", $"Unknown code bridge method '{request.Method}'.")),
             };
         }
-        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException or LocalStoreUnavailableException)
         {
             response = new BridgeResponse(request.RequestId, false, null, MapError(ex));
         }
@@ -113,24 +121,31 @@ public sealed class CodeBridge(ApiClient apiClient)
         return new BridgeResponse(requestId, true, ToSekResult(result), null);
     }
 
+    private async Task<BridgeResponse> RunPreviewAsync(string requestId, JsonElement payload)
+    {
+        var run = payload.Deserialize<RunPayload>(JsonOptions)
+            ?? throw new InvalidOperationException("Malformed 'runPreview' payload.");
+        var project = run.Project;
+
+        var result = await apiClient.RunPreviewAsync(project.EntryFilePath, ToApiFiles(project.Files));
+        PreviewReady?.Invoke(result.PreviewUrl);
+        return new BridgeResponse(requestId, true, new SekRunPreviewResultDto(result.PreviewUrl, result.Mode, result.IsReady), null);
+    }
+
     private async Task<BridgeResponse> SaveAsync(string requestId, JsonElement payload)
     {
         var save = payload.Deserialize<SavePayload>(JsonOptions)
             ?? throw new InvalidOperationException("Malformed 'save' payload.");
         var input = save.Project;
 
-        CodeProjectDto saved;
-        try
-        {
-            saved = await apiClient.UpdateCodeProjectAsync(
-                input.Id, input.Name, ToApiFiles(input.Files), input.EntryFilePath, input.ActiveFilePath, input.Stdin);
-        }
-        catch (ApiException ex) when (ex.StatusCode == 404)
-        {
-            // First save of a project SEK just generated an Id for — nothing to update yet.
-            saved = await apiClient.CreateCodeProjectAsync(
-                input.Name, ToApiFiles(input.Files), input.EntryFilePath, input.ActiveFilePath, input.Stdin, input.Id);
-        }
+        // Local upsert (see ILocalStore) — no update-then-404-fallback dance needed, unlike
+        // the old server-backed path: a local store has no "not found" concept to fall back
+        // from, it just writes the row either way. CreatedAt/UpdatedAt here are placeholders
+        // the store overwrites itself (preserving the real CreatedAt on an existing row).
+        var project = new CodeProjectDto(
+            input.Id, input.Name, ToApiFiles(input.Files), input.EntryFilePath, input.ActiveFilePath, input.Stdin,
+            DateTime.UtcNow, DateTime.UtcNow);
+        var saved = await localStore.SaveCodeProjectAsync(project);
 
         ProjectChanged?.Invoke();
         return new BridgeResponse(requestId, true, ToSekProject(saved), null);
@@ -203,6 +218,8 @@ public sealed class CodeBridge(ApiClient apiClient)
 
     private static SekErrorDto MapError(Exception ex) => ex switch
     {
+        LocalStoreUnavailableException => new SekErrorDto(
+            "network_error", "Local scratch storage is unavailable right now. Your changes were not saved."),
         ApiException { StatusCode: 404 } => new SekErrorDto("validation_error", "Project not found."),
         ApiException { StatusCode: 403 } => new SekErrorDto("unauthorized", "You don't have access to this project."),
         ApiException { StatusCode: 400 } apiEx => new SekErrorDto("validation_error", apiEx.Message),
@@ -227,6 +244,7 @@ public sealed class CodeBridge(ApiClient apiClient)
     private sealed record SekCodeProjectRequiredIdDto(
         Guid Id, string Name, IReadOnlyList<SekCodeFileDto> Files, string EntryFilePath, string ActiveFilePath, string? Stdin);
     private sealed record SekCodeRunResultDto(string Stdout, string Stderr, int ExitCode, long DurationMs, bool TimedOut, string? Status);
+    private sealed record SekRunPreviewResultDto(string PreviewUrl, string Mode, bool IsReady);
     private sealed record TerminalStartPayload(IReadOnlyList<SekCodeFileDto> Files);
     private sealed record TerminalExecPayload(Guid SessionId, string Command);
     private sealed record TerminalClosePayload(Guid SessionId);

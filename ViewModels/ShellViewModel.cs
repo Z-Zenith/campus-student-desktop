@@ -75,6 +75,15 @@ public partial class ShellViewModel : ViewModelBase, IDisposable
         BrowserViewModel = new BrowserViewModel(apiClient);
         NotesViewModel = new NotesViewModel(apiClient, userId);
         CodeEditorViewModel = new CodeEditorViewModel(apiClient, userId);
+        // B2 live preview (SDA/SEK plan): CodeBridge stays UI-agnostic (no Browser/Shell
+        // reference of its own) — this is the one place that actually knows about both
+        // the Coding and Browser apps, so it's where the cross-app "open this preview URL
+        // as a browser tab" coordination belongs, not inside either ViewModel directly.
+        CodeEditorViewModel.Bridge.PreviewReady += url =>
+        {
+            OpenApp(new AppCatalogEntry("Browser", "🌐", BrowserViewModel));
+            BrowserViewModel.OpenPreviewTab(url);
+        };
         MessagesViewModel = new MessagesViewModel(apiClient, userId);
         TeacherFeedbackViewModel = new TeacherFeedbackViewModel(apiClient);
         CourseInfoViewModel = new CourseInfoViewModel(apiClient);
