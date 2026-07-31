@@ -7,6 +7,10 @@ namespace StudentDesktop.Tests;
 // 0.3 spike (SDA/SEK plan): real DPAPI round-trip tests — this dev environment is
 // Windows, so unlike KeychainKeyStore/LibsecretKeyStore (unverified, no macOS/Linux
 // available here), this one can and should be genuinely exercised, not just compiled.
+// [SupportedOSPlatform] is compile-time-only (an analyzer hint) — xUnit still executes
+// these on the Linux CI runner, where DPAPI throws PlatformNotSupportedException, so
+// each test also needs the same runtime guard SecureKeyStoreFactoryTests below already
+// uses for the same reason.
 [SupportedOSPlatform("windows")]
 public class DpapiKeyStoreTests
 {
@@ -16,6 +20,11 @@ public class DpapiKeyStoreTests
     [Fact]
     public async Task SetAsync_ThenGetAsync_RoundTripsTheExactBytes()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var store = new DpapiKeyStore();
         var key = UniqueKey();
         var value = Encoding.UTF8.GetBytes("a secret passphrase, 🔒 and some bytes");
@@ -31,6 +40,11 @@ public class DpapiKeyStoreTests
     [Fact]
     public async Task GetAsync_ReturnsNull_ForAKeyThatWasNeverSet()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var store = new DpapiKeyStore();
 
         var result = await store.GetAsync(UniqueKey());
@@ -41,6 +55,11 @@ public class DpapiKeyStoreTests
     [Fact]
     public async Task DeleteAsync_RemovesTheKey_SoASubsequentGetReturnsNull()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var store = new DpapiKeyStore();
         var key = UniqueKey();
         await store.SetAsync(key, [1, 2, 3]);
@@ -54,6 +73,11 @@ public class DpapiKeyStoreTests
     [Fact]
     public async Task SetAsync_OverwritesAnExistingValueForTheSameKey()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var store = new DpapiKeyStore();
         var key = UniqueKey();
         await store.SetAsync(key, [1, 2, 3]);
@@ -74,6 +98,11 @@ public class DpapiKeyStoreTests
     [Fact]
     public async Task SetAsync_TheOnDiskFiles_DoNotContainThePlaintextValue()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var store = new DpapiKeyStore();
         var key = UniqueKey();
         var plaintextMarker = "TOTALLY-UNENCRYPTED-MARKER-VALUE-12345";
