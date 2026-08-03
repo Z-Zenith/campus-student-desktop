@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Avalonia.Controls;
+using StudentDesktop.Services;
 using StudentDesktop.ViewModels;
 
 namespace StudentDesktop.Views;
@@ -17,6 +18,9 @@ public partial class NotesView : UserControl
         EditorWebView.WebMessageReceived += OnWebMessageReceived;
         EditorWebView.NavigationCompleted += (_, _) =>
         {
+            // #11 (SDA-21): re-inject the clipboard isolation script after every navigation —
+            // see WebViewClipboardBridge for the full rationale.
+            _ = EditorWebView.InvokeScript(WebViewClipboardBridge.InjectScript);
             if (DataContext is NotesViewModel vm)
             {
                 vm.IsLoaded = true;
@@ -36,9 +40,22 @@ public partial class NotesView : UserControl
         vm.Bridge.InvokeScript = script => EditorWebView.InvokeScript(script);
     }
 
-    private void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
+    private async void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
     {
-        if (DataContext is NotesViewModel vm && e.Body is { } body)
+        if (e.Body is not { } body)
+        {
+            return;
+        }
+
+        // #11 (SDA-21): the clipboard bridge's own copy/cut/paste signals are handled here and
+        // never forwarded to SekBridge — they're a distinct, app-generated protocol, not a SEK
+        // host request.
+        if (await WebViewClipboardBridge.TryHandleAsync(body, AppClipboardService.Instance, EditorWebView.InvokeScript))
+        {
+            return;
+        }
+
+        if (DataContext is NotesViewModel vm)
         {
             _ = vm.Bridge.HandleMessageAsync(body);
         }

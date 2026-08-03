@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Avalonia.Controls;
+using StudentDesktop.Services;
 using StudentDesktop.ViewModels;
 
 namespace StudentDesktop.Views;
@@ -17,6 +18,9 @@ public partial class MessagesView : UserControl
         MessagesWebView.WebMessageReceived += OnWebMessageReceived;
         MessagesWebView.NavigationCompleted += (_, _) =>
         {
+            // #11 (SDA-21): re-inject the clipboard isolation script after every navigation —
+            // see WebViewClipboardBridge for the full rationale.
+            _ = MessagesWebView.InvokeScript(WebViewClipboardBridge.InjectScript);
             if (DataContext is MessagesViewModel vm)
             {
                 vm.IsLoaded = true;
@@ -37,9 +41,22 @@ public partial class MessagesView : UserControl
         _ = vm.MountAsync();
     }
 
-    private void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
+    private async void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
     {
-        if (DataContext is MessagesViewModel vm && e.Body is { } body)
+        if (e.Body is not { } body)
+        {
+            return;
+        }
+
+        // #11 (SDA-21): the clipboard bridge's own copy/cut/paste signals are handled here and
+        // never forwarded to DmsBridge — they're a distinct, app-generated protocol, not a DMS
+        // host request.
+        if (await WebViewClipboardBridge.TryHandleAsync(body, AppClipboardService.Instance, MessagesWebView.InvokeScript))
+        {
+            return;
+        }
+
+        if (DataContext is MessagesViewModel vm)
         {
             _ = vm.Bridge.HandleMessageAsync(body);
         }
