@@ -55,6 +55,16 @@
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.10" />
   </ItemGroup>
 
+  <!-- See the SQLitePCLRaw.bundle_e_sqlcipher comment above: GHSA-2m69-gcr7-jv3q has no
+       first_patched_version for SQLitePCLRaw.lib.e_sqlite3 yet, and the app never actually
+       uses that plain provider to parse SQL (raw.SetProvider always selects e_sqlcipher).
+       Suppressed here (rather than left to fail CI's "Check for vulnerable NuGet packages"
+       step) so that step still catches any *other*, newly-introduced advisory instead of
+       being permanently red on this already-accepted, currently-unfixable one. -->
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2m69-gcr7-jv3q" />
+  </ItemGroup>
+
   <!-- SDA-19: SEK-03's NotesEditor is React/TypeScript; embedding it means loading a
        standalone bundle in a NativeWebView, not referencing a .NET assembly. Since the
        repo split, campus-shared-editor-kit is a git submodule (external/shared-editor-kit)

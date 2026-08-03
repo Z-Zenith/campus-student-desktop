@@ -21,8 +21,15 @@ CommunityToolkit.Mvvm. Whitelisted in-app browser and embedded editor surfaces u
 ```bash
 dotnet build
 dotnet run
-dotnet test   # StudentDesktop.Tests
+dotnet test StudentDesktop.Tests   # NOT bare `dotnet test` — see below
 ```
+
+There is no root `.sln`, and the repo root's only project file is `StudentDesktop.csproj` (the
+WinExe app, which references no test SDK) — so a bare `dotnet test` run from the repo root
+silently resolves to that project via the CLI's implicit discovery, "succeeds" having run zero
+tests, and prints nothing to indicate it didn't run `StudentDesktop.Tests`. Always point `dotnet
+test` at the test project explicitly, as above (this is what `.github/workflows/ci.yml` already
+does).
 
 ## Cross-repo NativeWebView integrations (SDA-19, SEK-01, SDA-24)
 

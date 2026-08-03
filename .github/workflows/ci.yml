@@ -46,7 +46,15 @@ jobs:
         run: |
           set -o pipefail
           dotnet list package --vulnerable --include-transitive 2>&1 | tee vuln.log
-          if grep -q "has the following vulnerable packages" vuln.log; then
+          # GHSA-2m69-gcr7-jv3q (SQLitePCLRaw.lib.e_sqlite3 2.1.11, pulled in transitively
+          # by Microsoft.Data.Sqlite) is a known, already-triaged exception — see the
+          # NuGetAuditSuppress comment in StudentDesktop.csproj: no patched version exists
+          # upstream yet, and the app never actually uses that plain provider to parse SQL
+          # (raw.SetProvider always selects e_sqlcipher instead). `dotnet list package
+          # --vulnerable` doesn't honor NuGetAuditSuppress, so filter just that advisory's
+          # row out here before failing — any *other* vulnerable package should still fail
+          # the build.
+          if grep -E '^\s*>' vuln.log | grep -v 'GHSA-2m69-gcr7-jv3q' | grep -q .; then
             echo "::error::Vulnerable NuGet package(s) detected"
             exit 1
           fi

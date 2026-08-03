@@ -314,9 +314,15 @@ public partial class CalendarViewModel : ViewModelBase
         }
     }
 
+    // #7: item.Start/.End (CalendarItemDto) are server-sourced UTC timestamps (see
+    // Models/ApiModels.cs), so the week-grid boundary computed here has to be UTC-based too
+    // — DateTime.Now.Date (local wall-clock) would, for any positive-UTC-offset timezone,
+    // shift a late-local-evening session into the wrong UTC day/week column near week/day
+    // boundaries. Matches every other comparison against server-sourced times in this
+    // codebase (see ClassLockService.Evaluate).
     private static DateTime ThisWeekMonday()
     {
-        var today = DateTime.Now.Date;
+        var today = DateTime.UtcNow.Date;
         var offset = today.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)today.DayOfWeek - 1;
         return today.AddDays(-offset);
     }

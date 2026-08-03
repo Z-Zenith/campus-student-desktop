@@ -16,6 +16,15 @@ public class DpapiKeyStoreTests
     [Fact]
     public async Task SetAsync_ThenGetAsync_RoundTripsTheExactBytes()
     {
+        // DPAPI (System.Security.Cryptography.ProtectedData) is Windows-only; on other
+        // platforms (e.g. the Linux CI runner) it throws PlatformNotSupportedException
+        // rather than something this test is exercising, so skip there — same convention
+        // as SecureKeyStoreFactoryTests.Create_ReturnsADpapiKeyStore_OnWindows below.
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var store = new DpapiKeyStore();
         var key = UniqueKey();
         var value = Encoding.UTF8.GetBytes("a secret passphrase, 🔒 and some bytes");
@@ -41,6 +50,11 @@ public class DpapiKeyStoreTests
     [Fact]
     public async Task DeleteAsync_RemovesTheKey_SoASubsequentGetReturnsNull()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var store = new DpapiKeyStore();
         var key = UniqueKey();
         await store.SetAsync(key, [1, 2, 3]);
@@ -54,6 +68,11 @@ public class DpapiKeyStoreTests
     [Fact]
     public async Task SetAsync_OverwritesAnExistingValueForTheSameKey()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var store = new DpapiKeyStore();
         var key = UniqueKey();
         await store.SetAsync(key, [1, 2, 3]);
@@ -74,6 +93,11 @@ public class DpapiKeyStoreTests
     [Fact]
     public async Task SetAsync_TheOnDiskFiles_DoNotContainThePlaintextValue()
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         var store = new DpapiKeyStore();
         var key = UniqueKey();
         var plaintextMarker = "TOTALLY-UNENCRYPTED-MARKER-VALUE-12345";

@@ -57,8 +57,15 @@ public sealed class DmsBridge(ApiClient apiClient)
                     new DmsErrorDto("validation_error", $"Unknown DMS bridge method '{request.Method}'.")),
             };
         }
-        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException
+            or JsonException or InvalidOperationException)
         {
+            // #9: see SekBridge.HandleMessageAsync's identical fix — a malformed payload throws
+            // JsonException/InvalidOperationException from inside the switch above, which used
+            // to fall outside this filter and propagate past this fire-and-forget call
+            // (MessagesView.OnWebMessageReceived) as an unobserved task exception, so
+            // InvokeScript (the only reply channel) was never called and the JS-side request
+            // promise hung forever instead of failing closed.
             response = new BridgeResponse(request.RequestId, false, null, MapError(ex));
         }
 
@@ -100,6 +107,9 @@ public sealed class DmsBridge(ApiClient apiClient)
         ApiException { StatusCode: 403 } => new DmsErrorDto("not_a_participant", "You're not a participant in this conversation."),
         ApiException { StatusCode: 400 } apiEx => new DmsErrorDto("validation_error", apiEx.Message),
         ApiException apiEx => new DmsErrorDto("network_error", apiEx.Message),
+        // #9: deserialization/shape failures are a client-payload problem, not a network one —
+        // map them to validation_error like the ApiException 400 case above.
+        JsonException or InvalidOperationException => new DmsErrorDto("validation_error", "Malformed request."),
         _ => new DmsErrorDto("network_error", "Could not reach the server. Check your connection and try again."),
     };
 

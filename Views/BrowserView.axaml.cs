@@ -1,6 +1,9 @@
+using System;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using StudentDesktop.Services;
 using StudentDesktop.ViewModels;
 
 namespace StudentDesktop.Views;
@@ -79,8 +82,34 @@ public partial class BrowserView : UserControl
             return;
         }
 
-        var uri = e.Request;
         e.Cancel = true;
+        await ClassifyAndApplyAsync(tab, e.Request);
+    }
+
+    // #10: IWebView raises a distinct NewWindowRequested event for anything that would open a
+    // new browsing context — target="_blank" links, window.open() calls, etc. — separate from
+    // NavigationStarted, which never fires for these. Before this handler existed, nothing in
+    // this repo subscribed to NewWindowRequested at all, so it went through unhandled and the
+    // WebView opened an entirely unchecked native popup, bypassing the SDA-03/SDA-04 whitelist
+    // gate completely. Same eager-decide/re-navigate-in-background approach as
+    // OnNavigationStarted above (WebViewNewWindowRequestedEventArgs also can't be resolved
+    // asynchronously mid-event): mark Handled = true so the native popup never opens, then — if
+    // the target clears the classifier — navigate the current tab to it instead of spawning a
+    // second WebView instance, matching how in-page navigation already funnels through a single
+    // tab rather than creating new ones.
+    private async void OnNewWindowRequested(object? sender, WebViewNewWindowRequestedEventArgs e)
+    {
+        if (sender is not NativeWebView webView || webView.DataContext is not BrowserTabViewModel tab)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        await ClassifyAndApplyAsync(tab, e.Request);
+    }
+
+    private static async Task ClassifyAndApplyAsync(BrowserTabViewModel tab, Uri? uri)
+    {
         if (uri is null)
         {
             return;
@@ -113,5 +142,24 @@ public partial class BrowserView : UserControl
         tab.IsLoading = false;
         tab.RefreshNavigationState();
         tab.PageTitle = await webView.InvokeScript("document.title");
+
+        // #11 (SDA-21): re-inject the clipboard isolation script after every navigation — see
+        // WebViewClipboardBridge for the full rationale. Browser tabs navigate to arbitrary
+        // (whitelisted) sites rather than a single fixed host bundle, so this has to happen
+        // here rather than once at construction time like Notes/Messages.
+        _ = webView.InvokeScript(WebViewClipboardBridge.InjectScript);
+    }
+
+    // #11 (SDA-21): Browser has no application-level message bridge (unlike Notes/Messages'
+    // SekBridge/DmsBridge) — WebMessageReceived exists here solely for the clipboard bridge's
+    // copy/cut/paste signals.
+    private async void OnWebMessageReceived(object? sender, WebMessageReceivedEventArgs e)
+    {
+        if (sender is not NativeWebView webView || e.Body is not { } body)
+        {
+            return;
+        }
+
+        await WebViewClipboardBridge.TryHandleAsync(body, AppClipboardService.Instance, webView.InvokeScript);
     }
 }

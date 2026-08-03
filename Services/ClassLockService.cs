@@ -101,7 +101,13 @@ public sealed class ClassLockService : IDisposable
     {
         List<CalendarItemDto> snapshot;
         lock (_gate) snapshot = _classSessions;
-        SetLocked(ClassScheduleEvaluator.IsClassInSession(snapshot, DateTime.Now));
+        // #7: CalendarItemDto.Start/.End are server-sourced UTC timestamps (see
+        // Models/ApiModels.cs), so the "now" compared against them must be UTC too —
+        // DateTime.Now (local wall-clock) would engage/disengage the SDA-01 lock offset by
+        // the machine's local UTC delta. Matches every other comparison against
+        // server-sourced times in this codebase (RefreshAsync's _lastRefreshUtc above,
+        // AssignmentAutoSubmitService, UsageTelemetryService).
+        SetLocked(ClassScheduleEvaluator.IsClassInSession(snapshot, DateTime.UtcNow));
     }
 
     private void SetLocked(bool locked)
