@@ -120,8 +120,18 @@ public sealed class SekBridge(ApiClient apiClient)
                     new SekErrorDto("validation_error", $"Unknown SEK bridge method '{request.Method}'.")),
             };
         }
-        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException
+            or JsonException or InvalidOperationException)
         {
+            // #9: a malformed payload throws JsonException (shape mismatch — e.g. payload is a
+            // scalar, not an object) or InvalidOperationException (the explicit "Malformed '...'
+            // payload." throws above, for a null sub-object after deserialization) from inside
+            // the switch above. Both used to fall outside this filter, so the exception
+            // propagated past HandleMessageAsync entirely — this method is always invoked
+            // fire-and-forget (see NotesView.OnWebMessageReceived), so that became an unobserved
+            // task exception and InvokeScript (the only reply channel) was never called, hanging
+            // the JS-side request promise forever instead of failing closed like every other
+            // error path here.
             response = new BridgeResponse(request.RequestId, false, null, MapError(ex));
         }
 
@@ -137,7 +147,11 @@ public sealed class SekBridge(ApiClient apiClient)
     {
         var save = payload.Deserialize<SavePayload>(JsonOptions)
             ?? throw new InvalidOperationException("Malformed 'save' payload.");
-        var input = save.Note;
+        // #9: SavePayload deserializing successfully (a non-null object) doesn't guarantee its
+        // Note sub-object was actually present in the JSON — a payload like `{}` (missing the
+        // 'note' field entirely) deserializes fine with Note left null, which used to NRE a
+        // line below instead of failing closed like a genuinely malformed payload should.
+        var input = save.Note ?? throw new InvalidOperationException("Malformed 'save' payload: missing 'note'.");
 
         NoteDto saved;
         try
@@ -195,8 +209,11 @@ public sealed class SekBridge(ApiClient apiClient)
     {
         var upload = payload.Deserialize<UploadImagePayload>(JsonOptions)
             ?? throw new InvalidOperationException("Malformed 'uploadImage' payload.");
-        var embeddedUrl = await apiClient.SaveImageAsync(upload.Result.SourceUrl);
-        var insert = new SekImageInsertDto(embeddedUrl, upload.Result.Title, upload.Result.Width, upload.Result.Height, upload.Result.Attribution);
+        // #9: same shape as SaveAsync's Note guard above — a payload missing 'result' entirely
+        // deserializes to a non-null UploadImagePayload with Result left null.
+        var result = upload.Result ?? throw new InvalidOperationException("Malformed 'uploadImage' payload: missing 'result'.");
+        var embeddedUrl = await apiClient.SaveImageAsync(result.SourceUrl);
+        var insert = new SekImageInsertDto(embeddedUrl, result.Title, result.Width, result.Height, result.Attribution);
         return new BridgeResponse(requestId, true, insert, null);
     }
 
@@ -211,6 +228,10 @@ public sealed class SekBridge(ApiClient apiClient)
         ApiException { StatusCode: 403 } => new SekErrorDto("unauthorized", "You don't have access to this note."),
         ApiException { StatusCode: 400 } apiEx => new SekErrorDto("validation_error", apiEx.Message),
         ApiException apiEx => new SekErrorDto("network_error", apiEx.Message),
+        // #9: deserialization/shape failures are a client-payload problem, not a network one —
+        // map them to validation_error like the ApiException 400 case above, rather than
+        // falling into the generic network_error message below.
+        JsonException or InvalidOperationException => new SekErrorDto("validation_error", "Malformed request."),
         _ => new SekErrorDto("network_error", "Could not reach the server. Check your connection and try again."),
     };
 

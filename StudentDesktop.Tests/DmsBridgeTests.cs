@@ -86,6 +86,47 @@ public class DmsBridgeTests
         Assert.Contains("\"ok\":false", response);
     }
 
+    // #9: a non-object 'payload' value for 'sendMessage' fails payload.Deserialize<T>() with a
+    // JsonException — before the fix, this fell outside HandleMessageAsync's catch filter,
+    // propagated out of this fire-and-forget call as an unobserved task exception, and
+    // InvokeScript (the only reply channel) was never invoked, hanging the JS-side request
+    // promise forever. Must fail closed with a mapped error instead.
+    [Fact]
+    public async Task Sda24_HandleMessage_SendMessage_WithNonObjectPayload_RespondsWithValidationErrorInsteadOfHanging()
+    {
+        var (bridge, lastScript) = NewBridge();
+        var payload = JsonSerializer.Serialize(new { requestId = "send-2", method = "sendMessage", payload = "not-an-object" });
+
+        var exception = await Record.ExceptionAsync(() => bridge.HandleMessageAsync(payload));
+
+        Assert.Null(exception);
+        var script = lastScript();
+        Assert.NotNull(script);
+        var response = ExtractPayload(script, "__dmsHostReceive");
+        Assert.Contains("send-2", response);
+        Assert.Contains("\"ok\":false", response);
+        Assert.Contains("validation_error", response);
+    }
+
+    // #9: a non-object 'payload' value fails payload.Deserialize<T>() with a JsonException
+    // rather than InvalidOperationException — a distinct failure mode that must be caught too.
+    [Fact]
+    public async Task Sda24_HandleMessage_ListMessages_WithNonObjectPayload_RespondsWithValidationErrorInsteadOfHanging()
+    {
+        var (bridge, lastScript) = NewBridge();
+        var payload = JsonSerializer.Serialize(new { requestId = "msgs-2", method = "listMessages", payload = "not-an-object" });
+
+        var exception = await Record.ExceptionAsync(() => bridge.HandleMessageAsync(payload));
+
+        Assert.Null(exception);
+        var script = lastScript();
+        Assert.NotNull(script);
+        var response = ExtractPayload(script, "__dmsHostReceive");
+        Assert.Contains("msgs-2", response);
+        Assert.Contains("\"ok\":false", response);
+        Assert.Contains("validation_error", response);
+    }
+
     [Fact]
     public async Task Sda24_HandleMessage_UnknownMethod_RespondsWithValidationError()
     {

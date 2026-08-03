@@ -60,6 +60,48 @@ public class SekBridgeTests
         Assert.Contains("network_error", response);
     }
 
+    // #9: a 'save' payload missing the required 'note' field throws InvalidOperationException
+    // from inside SaveAsync — before the fix, that exception fell outside HandleMessageAsync's
+    // catch filter, propagated out of this fire-and-forget call as an unobserved task
+    // exception, and InvokeScript (the only reply channel) was never invoked, hanging the
+    // JS-side request promise forever. Must fail closed with a mapped error instead, same as
+    // every other path through this method.
+    [Fact]
+    public async Task Sda19_HandleMessage_Save_WithMissingNoteField_RespondsWithValidationErrorInsteadOfHanging()
+    {
+        var (bridge, lastScript) = NewBridge();
+        var payload = JsonSerializer.Serialize(new { requestId = "save-2", method = "save", payload = new { } });
+
+        var exception = await Record.ExceptionAsync(() => bridge.HandleMessageAsync(payload));
+
+        Assert.Null(exception);
+        var script = lastScript();
+        Assert.NotNull(script);
+        var response = ExtractPayload(script, "__sekHostReceive");
+        Assert.Contains("save-2", response);
+        Assert.Contains("\"ok\":false", response);
+        Assert.Contains("validation_error", response);
+    }
+
+    // #9: a non-object 'payload' value fails payload.Deserialize<T>() with a JsonException
+    // rather than InvalidOperationException — a distinct failure mode that must be caught too.
+    [Fact]
+    public async Task Sda19_HandleMessage_Save_WithNonObjectPayload_RespondsWithValidationErrorInsteadOfHanging()
+    {
+        var (bridge, lastScript) = NewBridge();
+        var payload = JsonSerializer.Serialize(new { requestId = "save-3", method = "save", payload = "not-an-object" });
+
+        var exception = await Record.ExceptionAsync(() => bridge.HandleMessageAsync(payload));
+
+        Assert.Null(exception);
+        var script = lastScript();
+        Assert.NotNull(script);
+        var response = ExtractPayload(script, "__sekHostReceive");
+        Assert.Contains("save-3", response);
+        Assert.Contains("\"ok\":false", response);
+        Assert.Contains("validation_error", response);
+    }
+
     [Fact]
     public async Task Sda19_HandleMessage_UnknownMethod_RespondsWithValidationError()
     {
