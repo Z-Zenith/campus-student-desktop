@@ -267,7 +267,9 @@
                             <webview:NativeWebView Source="{Binding CurrentSource}" IsVisible="{Binding IsSelected}"
                                                     Loaded="OnWebViewLoaded"
                                                     NavigationStarted="OnNavigationStarted"
-                                                    NavigationCompleted="OnNavigationCompleted"/>
+                                                    NavigationCompleted="OnNavigationCompleted"
+                                                    NewWindowRequested="OnNewWindowRequested"
+                                                    WebMessageReceived="OnWebMessageReceived"/>
                             <TextBlock Text="Enter a whitelisted address above to get started"
                                        Classes="empty-state" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <TextBlock.IsVisible>
