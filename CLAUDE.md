@@ -52,8 +52,9 @@ git submodule update --init
 (cd external/direct-messaging && npm install && npm run build:host)
 ```
 
-This is a manual dev prerequisite, same as pre-split — not yet wired into a cross-toolchain CI
-step (tracked as a follow-up). Missing `dist/host` yields zero copied files, not a build error
+This is a manual dev prerequisite for local builds — `.github/workflows/ci.yml` already runs
+`npm run build:host` for both submodules before the .NET build/test steps, so it's not an open
+CI gap. Missing `dist/host` yields zero copied files, not a build error
 (Content globs don't fail on no matches), so `dotnet build` still succeeds without it, but
 `SekHost`/`CodeHost`/`DmsHost` will be empty. To bump either submodule to a newer
 `host-<version>` tag: `cd external/<name> && git fetch --tags && git checkout host-<version>`,
